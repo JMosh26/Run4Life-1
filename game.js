@@ -292,31 +292,51 @@ function getJumpShrinkFactor() {
 }
 
 function getRunnerBounds() {
-  if (runnerSlide.active) {
-    const h = runnerSlide.height;
-    const w = runnerSlide.width;
+  const SPRITE_SCALE = 1.5;
+  const SLIDE_STRETCH_X = 1.4;   // must match your draw code
+  const HITBOX_INSET = 0.8;      // hitbox is 80% of sprite size
+
+  // Compute sprite footprint (mirrors the draw code exactly)
+  const isSliding = runnerSlide.active;
+
+  const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
+  const spriteH = ENTITY_HEIGHT * SPRITE_SCALE;
+  const spriteX = runner.x + (runner.width - spriteW) / 2;
+  const spriteY = runner.y + runner.height - spriteH + runnerJump.yOffset;
+
+  // Slide — return the sprite footprint, or a slightly inset version
+  if (isSliding) {
+    const w = spriteW * HITBOX_INSET;
+    const h = spriteH * HITBOX_INSET;
     return {
-      x: runner.x - (w - runner.width) / 2,
-      y: runner.y + (runner.height - h) + runnerJump.yOffset,
+      x: spriteX + (spriteW - w) / 2,
+      y: spriteY + (spriteH - h),
       width: w,
       height: h,
     };
   }
+
+  // Jump — shrink toward a cube at the peak
   if (runnerJump.active) {
-    const h = runner.height * getJumpShrinkFactor();
-    const w = runner.width;
+    const factor = getJumpShrinkFactor();
+    const w = spriteW * HITBOX_INSET * factor;
+    const h = spriteH * HITBOX_INSET * factor;
     return {
-      x: runner.x,
-      y: runner.y + (runner.height - h) + runnerJump.yOffset,
+      x: spriteX + (spriteW - w) / 2,
+      y: spriteY + (spriteH - h),
       width: w,
       height: h,
     };
   }
+
+  // Standing
+  const w = spriteW * HITBOX_INSET;
+  const h = spriteH * HITBOX_INSET;
   return {
-    x: runner.x,
-    y: runner.y,
-    width: runner.width,
-    height: runner.height,
+    x: spriteX + (spriteW - w) / 2,
+    y: spriteY + (spriteH - h),
+    width: w,
+    height: h,
   };
 }
 
@@ -685,7 +705,7 @@ function update(delta) {
     }
   }
 
-let chaserSpeed = 60;
+let chaserSpeed = 30;
 if (chaserStaggerTime > 0) {
   chaserSpeed *= CHASER_STAGGER_FACTOR;
 }
@@ -819,7 +839,6 @@ const isSliding = runnerSlide.active;
 
 const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
 const spriteH = ENTITY_HEIGHT * SPRITE_SCALE;
-
 const spriteX = runner.x + (runner.width - spriteW) / 2;
 const spriteY = runner.y + runner.height - spriteH + runnerJump.yOffset;
 
