@@ -29,6 +29,35 @@ const SLIDE_FRAMES = 14;
 const SLIDE_FRAME_W = 200;
 const SLIDE_FRAME_H = 200;
 
+//Obstacle Variants (1 - Barrier 2 - Stop sign 3 - Cone)
+const OBSTACLE_VARIANTS = [
+  {
+    name: 'barrier',
+    width: 60,
+    height: 40,
+    sprites: ['sprites/obstacle-1.png'],
+  },
+  {
+    name: 'stop-sign',
+    width: 40,
+    height: 40,
+    sprites: ['sprites/obstacle-2.png'],
+  },
+  {
+    name: 'cone',
+    width: 30,
+    height: 30,
+    sprites: ['sprites/obstacle-3.png'],
+  },
+];
+
+OBSTACLE_VARIANTS.forEach(variant => {
+  variant.images = variant.sprites.map(src => {
+    const img = new Image();
+    img.src = src;
+    return img;
+  });
+});
 
 //Runner Animation Initializing
 const runnerAnim = {
@@ -292,25 +321,27 @@ function getJumpShrinkFactor() {
 }
 
 function getRunnerBounds() {
-  const SPRITE_SCALE = 1.5;
+  const SPRITE_SCALE = 1.3;
   const SLIDE_STRETCH_X = 1.4;   // must match your draw code
   const HITBOX_INSET = 0.8;      // hitbox is 80% of sprite size
 
   // Compute sprite footprint (mirrors the draw code exactly)
   const isSliding = runnerSlide.active;
 
-  const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
-  const spriteH = ENTITY_HEIGHT * SPRITE_SCALE;
+    // const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
+    // const spriteH = ENTITY_HEIGHT * SPRITE_SCALE;
+  const spriteW = (isSliding ? runnerSlide.width : ENTITY_WIDTH) * SPRITE_SCALE;
+  const spriteH = (isSliding ? runnerSlide.height : ENTITY_HEIGHT) * SPRITE_SCALE;
   const spriteX = runner.x + (runner.width - spriteW) / 2;
   const spriteY = runner.y + runner.height - spriteH + runnerJump.yOffset;
 
   // Slide — return the sprite footprint, or a slightly inset version
   if (isSliding) {
-    const w = spriteW * HITBOX_INSET;
-    const h = spriteH * HITBOX_INSET;
+    const w = runnerSlide.width;
+    const h = runnerSlide.height;
     return {
-      x: spriteX + (spriteW - w) / 2,
-      y: spriteY + (spriteH - h),
+      x: runner.x - (w - runner.width) / 2,
+      y: runner.y + (runner.height - h),
       width: w,
       height: h,
     };
@@ -323,7 +354,7 @@ function getRunnerBounds() {
     const h = spriteH * HITBOX_INSET * factor;
     return {
       x: spriteX + (spriteW - w) / 2,
-      y: spriteY + (spriteH - h),
+      y: spriteY + (spriteH - h) / 2,   // ← center vertically instead of bottom
       width: w,
       height: h,
     };
@@ -823,22 +854,23 @@ const runnerX = runner.x - (runnerW - runner.width) / 2;
 const runnerY = runner.y + (runner.height - runnerH) + runnerJump.yOffset;
 
   // // Debug reference rectangle (behind) — remove after tuning
-  // const dbg = getRunnerBounds();
-  // ctx.fillStyle = '#4f4';
-  // ctx.fillRect(dbg.x, dbg.y, dbg.width, dbg.height);
-  // ctx.strokeStyle = '#2a2';
-  // ctx.lineWidth = 2;
-  // ctx.strokeRect(dbg.x, dbg.y, dbg.width, dbg.height);
+const dbg = getRunnerBounds();
+ctx.fillStyle = '#4f4';
+ctx.fillRect(dbg.x, dbg.y, dbg.width, dbg.height);
+ctx.strokeStyle = '#2a2';
+ctx.lineWidth = 2;
+ctx.strokeRect(dbg.x, dbg.y, dbg.width, dbg.height);
 
 // 2. Sprite — always full standing size
 const SPRITE_SCALE = 2.0;
 const SLIDE_STRETCH_X = 1.5;
+const SLIDE_STRETCH_Y = 0.8;
 
 const isJumping = runnerJump.active;
 const isSliding = runnerSlide.active;
 
 const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
-const spriteH = ENTITY_HEIGHT * SPRITE_SCALE;
+const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
 const spriteX = runner.x + (runner.width - spriteW) / 2;
 const spriteY = runner.y + runner.height - spriteH + runnerJump.yOffset;
 
@@ -969,15 +1001,21 @@ function spawnObstacle() {
       chaserSlid: false,
     });
   } else {
-    const obstacleSize = 40;
+    const variantIndex = Math.floor(Math.random() * OBSTACLE_VARIANTS.length);
+    const variant = OBSTACLE_VARIANTS[variantIndex];
+
+    const obstacleW = variant.width;
+    const obstacleH = variant.height;
+
     obstacles.push({
       id: nextObstacleId++,
       x: canvas.width + 30,
-      y: getFloorTop() - obstacleSize,
-      width: obstacleSize,
-      height: obstacleSize,
+      y: getFloorTop() - obstacleH,
+      width: obstacleW,
+      height: obstacleH,
       word: word,
       type: 'jump',
+      variantIndex: variantIndex,   // ← new
       cleared: false,
       awaitingJump: false,
       awaitingSlide: false,
