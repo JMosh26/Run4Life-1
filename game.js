@@ -22,6 +22,10 @@ const JUMP_FRAMES = 10;
 const JUMP_FRAME_W = 120;
 const JUMP_FRAME_H = 200;
 
+//Text BG 
+const wordBgImage = new Image();
+wordBgImage.src = 'sprites/word-bg.png';
+
 //Sliding Sprite
 const slideSheet = new Image();
 slideSheet.src = 'sprites/runner-slide.png';
@@ -100,7 +104,7 @@ const ENTITY_HEIGHT = 50;
 const JUMP_HITBOX_HEIGHT = 15;   
 
 //FLOOR 
-const FLOOR_HEIGHT = 100;      // how thick the floor band is
+const FLOOR_HEIGHT = 150;      // how thick the floor band is
 const FLOOR_OFFSET = 0;      // gap between entity feet and floor top
 
 //SCORING SYSTEM
@@ -121,6 +125,13 @@ const SLIDE_OBSTACLE_GAP = 30;   // clearance between floor and block bottom
 const SLIDE_UNLOCK_SCORE = 1000;
 const SLIDE_CHANCE_AFTER_UNLOCK = 0.5; 
 
+
+//Wrong letter feedback
+let wrongFlashTime = 0;     // seconds remaining on the red flash
+let shakeTime = 0;          // seconds remaining on the camera shake
+const WRONG_FLASH_DURATION = 0.2;
+const SHAKE_DURATION = 0.25;
+const SHAKE_INTENSITY = 8;  // pixels of offset at peak
 
 let floorScroll = 0;      
 
@@ -577,7 +588,11 @@ function checkTypedMatch() {
 
   // If typed text is not a prefix of the word, reset it
   if (!word.startsWith(currentTyped)) {
-    currentTyped = '';
+    currentTyped = currentTyped.slice(0, -1);
+
+    // Wrong letter feedback
+    wrongFlashTime = WRONG_FLASH_DURATION;
+    shakeTime = SHAKE_DURATION;
     return;
   }
 
@@ -609,35 +624,49 @@ function checkTypedMatch() {
   }
 }
 function drawObstacleWord(o) {
-  if(o.cleared) return;
+  if (o.cleared) return;
+
   const isTarget = (o === targetedObstacle);
   const typed = isTarget ? currentTyped : '';
-  const word = o.word;
+  const word = o.word.toUpperCase();
 
-  // Measure so we can center the whole thing
-  ctx.font = '16px monospace';
+  const FONT_SIZE = 23;
+  const LETTER_KERN = 2;
+  const FONT = `${FONT_SIZE}px Symtext`;
+
+  ctx.font = FONT;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
-  const charWidth = ctx.measureText('M').width;
-  const totalWidth = charWidth * word.length;
+  const widths = word.split('').map(ch => ctx.measureText(ch).width);
+  const textWidth = widths.reduce((a, b) => a + b, 0) - LETTER_KERN * (word.length - 1);
 
-  // Starting x — centered above the obstacle
-  let drawX = o.x + o.width / 2 - totalWidth / 2;
-  const drawY = o.y - 15;
+  // Background
+  const PAD_X = 14;
+  const PAD_Y = 8;
 
-  // Draw each character
+  const boxW = textWidth + PAD_X * 2;
+  const boxH = FONT_SIZE + PAD_Y * 2;
+
+  const boxX = o.x + o.width / 2 - boxW / 2;
+  const boxY = o.y - 30 - boxH / 2;
+
+  if (wordBgImage.complete && wordBgImage.naturalWidth > 0) {
+    ctx.drawImage(wordBgImage, boxX, boxY, boxW, boxH);
+  } else {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    roundRect(ctx, boxX, boxY, boxW, boxH, 4);
+    ctx.fill();
+  }
+
+  // Letters
+  let drawX = o.x + o.width / 2 - textWidth / 2;
+  const drawY = boxY + boxH / 2;
+
   for (let i = 0; i < word.length; i++) {
-    const isTyped = i < typed.length;
-
-    // Yellow for typed letters, white for the rest
-    ctx.fillStyle = isTyped ? '#ffd400' : '#ffffff';
-
-    // Optional: bold the typed ones
-    ctx.font = (isTyped ? 'bold ' : '') + '16px monospace';
-
+    ctx.fillStyle = i < typed.length ? '#ffffff' : '#3d3d3d';
     ctx.fillText(word[i], drawX, drawY);
-    drawX += charWidth;
+    drawX += widths[i] - LETTER_KERN;
   }
 }
 
@@ -694,6 +723,10 @@ function updateSlide(slide, entity, delta) {
 
 function update(delta) {
   const worldSpeed = getWorldSpeed();   // compute once per frame
+
+  //Countdown for wrong letter
+  if (wrongFlashTime > 0) wrongFlashTime -= delta;
+  if (shakeTime > 0) shakeTime -= delta;
 
   const activeFrameCount = runnerJump.active ? JUMP_FRAMES
                        : runnerSlide.active ? SLIDE_FRAMES
@@ -829,23 +862,25 @@ function drawFloor() {
   const floorTop = getFloorTop();
   const floorH = FLOOR_HEIGHT;
    // Solid floor band
-  ctx.fillStyle = '#2a2a2a';
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, floorTop, canvas.width, floorH);
-
-  // Top edge highlight (a lighter line)
-  ctx.fillStyle = '#3a3a3a';
-  ctx.fillRect(0, floorTop, canvas.width, 3);
-
-  // Scrolling tick marks to convey motion
-  ctx.fillStyle = '#3a3a3a';
-  const spacing = 80;
-  for (let x = floorScroll; x < canvas.width; x += spacing) {
-    ctx.fillRect(x, floorTop + 10, 40, 4);   // a short dash
-  }
 }
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+
+  if (shakeTime > 0) {
+  const t = shakeTime / SHAKE_DURATION;         // 1 → 0
+  const magnitude = SHAKE_INTENSITY * t;
+
+  // Random offset in both axes
+  const offsetX = (Math.random() - 0.5) * 2 * magnitude;
+  const offsetY = (Math.random() - 0.5) * 2 * magnitude;
+
+  ctx.translate(offsetX, offsetY);
+  }
 
   drawFloor();
 
@@ -856,12 +891,12 @@ const runnerX = runner.x - (runnerW - runner.width) / 2;
 const runnerY = runner.y + (runner.height - runnerH) + runnerJump.yOffset;
 
   // // Debug reference rectangle (behind) — remove after tuning
-const dbg = getRunnerBounds();
-ctx.fillStyle = '#4f4';
-ctx.fillRect(dbg.x, dbg.y, dbg.width, dbg.height);
-ctx.strokeStyle = '#2a2';
-ctx.lineWidth = 2;
-ctx.strokeRect(dbg.x, dbg.y, dbg.width, dbg.height);
+// const dbg = getRunnerBounds();
+// ctx.fillStyle = '#4f4';
+// ctx.fillRect(dbg.x, dbg.y, dbg.width, dbg.height);
+// ctx.strokeStyle = '#2a2';
+// ctx.lineWidth = 2;
+// ctx.strokeRect(dbg.x, dbg.y, dbg.width, dbg.height);
 
 // 2. Sprite — always full standing size
 const SPRITE_SCALE = 2.0;
@@ -969,6 +1004,14 @@ obstacles.forEach(o => {
     ctx.fillStyle = `rgba(255, 215, 0, ${intensity * 0.08})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
+
+  if (wrongFlashTime > 0) {
+  const alpha = (wrongFlashTime / WRONG_FLASH_DURATION) * 0.35;
+  ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  ctx.restore(); 
 }
 
 function rectsOverlap(a, b) {
@@ -1106,7 +1149,10 @@ function resizeCanvas() {
 
   ctx.imageSmoothingEnabled = false;
 }
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
 
-requestAnimationFrame(gameLoop);
+document.fonts.ready.then(() => {
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  lastTime = performance.now();   // prevent huge first delta
+  rafId = requestAnimationFrame(gameLoop);
+});

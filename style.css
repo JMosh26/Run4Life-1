@@ -1,6 +1,10 @@
-/* ============================================
-   Page reset
-   ============================================ */
+@font-face {
+  font-family: 'GameMode';
+  src: url('fonts/Symtext.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 html, body {
   margin: 0;
   padding: 0;
