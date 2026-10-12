@@ -33,20 +33,20 @@ const SLIDE_FRAME_H = 200;
 const OBSTACLE_VARIANTS = [
   {
     name: 'barrier',
-    width: 60,
-    height: 40,
+    width: 80,
+    height: 60,
     sprites: ['sprites/obstacle-1.png'],
   },
   {
     name: 'stop-sign',
-    width: 40,
-    height: 40,
+    width: 50,
+    height: 50,
     sprites: ['sprites/obstacle-2.png'],
   },
   {
     name: 'cone',
-    width: 30,
-    height: 30,
+    width: 40,
+    height: 40,
     sprites: ['sprites/obstacle-3.png'],
   },
 ];
@@ -69,20 +69,20 @@ const runnerAnim = {
 
 
 //SLOW MOTION, JUMPING AND SLIDING 
-const SLOWMO_DISTANCE = 250;    // how close an obstacle must be to trigger slow-mo
-const SLOWMO_FACTOR = 0.35;     // 0.35 = 35% speed. Lower = slower
-const JUMP_DURATION = 0.5;      // seconds in the air
-const JUMP_HEIGHT = 80;         // peak pixels above the ground
+const SLOWMO_DISTANCE = 220;    // how close an obstacle must be to trigger slow-mo
+const SLOWMO_FACTOR = 0.1;     // 0.35 = 35% speed. Lower = slower
+const JUMP_DURATION = 1;      // seconds in the air
+const JUMP_HEIGHT = 150;         // peak pixels above the ground
 const CHASER_JUMP_DELAY = 0.25; // chaser starts its jump later
-const JUMP_TRIGGER_DISTANCE = 180;  // jump when obstacle is this far from runner
+const JUMP_TRIGGER_DISTANCE = 200;  // jump when obstacle is this far from runner
 const JUMP_SAFE_MARGIN = 40;         // extra leeway — jump still works if closer
 const SLIDE_TRIGGER_DISTANCE = 180;   // start here; tune later
-const SLIDE_DURATION = 0.5;           // how long the slide lasts
+const SLIDE_DURATION = 0.8;           // how long the slide lasts
 const SLIDE_HEIGHT = 20;
 const SLIDE_WIDTH = 50;
-const CHASER_STOP_DISTANCE = 100;      // chaser never gets closer than this to a pending obstacle
-const CHASER_JUMP_CUE = 40;           // when the obstacle is this close, jump
-const CHASER_JUMP_DURATION = 0.6;
+const CHASER_STOP_DISTANCE = 130;      // chaser never gets closer than this to a pending obstacle
+const CHASER_JUMP_CUE = 50;           // when the obstacle is this close, jump
+const CHASER_JUMP_DURATION = 0.8;
 
 //CHASER STAGGER
 const CHASER_STAGGER_DURATION = 1.2; // how long the slowdown lasts
@@ -358,6 +358,7 @@ function getRunnerBounds() {
       width: w,
       height: h,
     };
+    
   }
 
   // Standing
@@ -470,7 +471,7 @@ function getSlideDurationForDistance() {
   const timeToPass = (closest.width + runner.width) / speed;   // ← use `speed`
   const airtime = timeToReach + timeToPass;
 
-  return Math.max(0.5, Math.min(airtime, 1.8));
+  return Math.max(0.6, Math.min(airtime, 1.8));
 }
 
 function checkActionTriggers() {
@@ -548,7 +549,7 @@ function getJumpDurationForDistance() {
   const timeToPass = (runner.width + 40) / speed;
   const airtime = timeToReach + timeToPass;
 
-  return Math.max(0.4, Math.min(airtime, 1.5));   // clamp
+  return Math.max(0.8, Math.min(airtime, 1.5));   // clamp
 }
 function triggerRunnerJump() {
   runnerJump.active = true;
@@ -661,6 +662,7 @@ function updateJump(jump, delta) {
   // Parabolic arc: peak at duration/2
   const t = jump.time / jump.duration;         // 0 → 1
   jump.yOffset = -4 * jump.height * t * (1 - t); // classic parabola
+
 }
 function updateSlide(slide, entity, delta) {
   if (!slide.active) return;
@@ -932,9 +934,19 @@ obstacles.forEach(o => {
     ctx.lineWidth = 2;
     ctx.strokeRect(o.x, o.y, o.width, o.height);
   } else {
-    // Ground square
-    ctx.fillStyle = o.cleared ? '#7a3d00' : '#f80';
-    ctx.fillRect(o.x, o.y, o.width, o.height);
+    const variant = OBSTACLE_VARIANTS[o.variantIndex];
+    const sprite = variant.images[0];
+
+    // 1. Sprite (behind)
+    if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+      ctx.drawImage(sprite, o.x, o.y, o.width, o.height);
+    }
+
+    // 2. Placeholder rectangle (front, semi-transparent)
+    // ctx.globalAlpha = 0.4;
+    // ctx.fillStyle = o.cleared ? '#7a3d00' : '#f80';
+    // ctx.fillRect(o.x, o.y, o.width, o.height);
+    // ctx.globalAlpha = 1.0;
   }
 
   drawObstacleWord(o);
