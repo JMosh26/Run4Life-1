@@ -214,33 +214,7 @@ class Entity {
    * Draw this entity to the canvas.
    * MUST be overridden by subclasses.
    */
-  draw(ctx) {
-    const isJumping = this.jump.active;
-    const isSliding = this.slide.active;
-
-    const SPRITE_SCALE = 2.0;
-    const SLIDE_STRETCH_X = 1.5;
-    const SLIDE_STRETCH_Y = 0.8;
-
-    const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
-    const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
-    const spriteX = this.x + (this.width - spriteW) / 2;
-    const spriteY = this.y + this.height - spriteH + this.jump.yOffset;
-
-    const activeSheet = isSliding ? slideSheet : isJumping ? jumpSheet : runSheet;
-    const activeFrameW = isSliding ? SLIDE_FRAME_W : isJumping ? JUMP_FRAME_W : RUN_FRAME_W;
-    const activeFrameH = isSliding ? SLIDE_FRAME_H : isJumping ? JUMP_FRAME_H : RUN_FRAME_H;
-
-    if (activeSheet.complete && activeSheet.naturalWidth > 0) {
-      const sx = this.anim.frame * activeFrameW;
-
-      ctx.drawImage(
-        activeSheet,
-        sx, 0, activeFrameW, activeFrameH,
-        spriteX, spriteY, spriteW, spriteH
-      );
-    }
-  }
+  draw(ctx) {}
 }
 /**
  * Runner — the player-controlled entity.
@@ -296,7 +270,33 @@ class Runner extends Entity {
       this.anim.frame = (this.anim.frame + 1) % activeFrameCount;
     }
   }
-  draw(ctx) {}
+  draw(ctx) {
+        const isJumping = this.jump.active;
+    const isSliding = this.slide.active;
+
+    const SPRITE_SCALE = 2.0;
+    const SLIDE_STRETCH_X = 1.5;
+    const SLIDE_STRETCH_Y = 0.8;
+
+    const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
+    const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
+    const spriteX = this.x + (this.width - spriteW) / 2;
+    const spriteY = this.y + this.height - spriteH + this.jump.yOffset;
+
+    const activeSheet = isSliding ? slideSheet : isJumping ? jumpSheet : runSheet;
+    const activeFrameW = isSliding ? SLIDE_FRAME_W : isJumping ? JUMP_FRAME_W : RUN_FRAME_W;
+    const activeFrameH = isSliding ? SLIDE_FRAME_H : isJumping ? JUMP_FRAME_H : RUN_FRAME_H;
+
+    if (activeSheet.complete && activeSheet.naturalWidth > 0) {
+      const sx = this.anim.frame * activeFrameW;
+
+      ctx.drawImage(
+        activeSheet,
+        sx, 0, activeFrameW, activeFrameH,
+        spriteX, spriteY, spriteW, spriteH
+      );
+    }
+  }
 }
 // const runner = {
 //   x: canvas.width / 2 - ENTITY_WIDTH / 2,
