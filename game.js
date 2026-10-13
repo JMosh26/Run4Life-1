@@ -372,22 +372,11 @@ class Chaser extends Entity {
   }
 }
   draw(ctx) {
-    ctx.fillStyle = chaser.staggerTime > 0 ? '#a55' : '#f44';
-    ctx.fillRect(
-      chaserX,
-      chaserY + chaser.jump.yOffset,
-      chaserW,
-      chaserH
-    );
-    ctx.strokeStyle = chaser.staggerTime > 0 ? '#622' : '#a22';
-    ctx.strokeRect(
-      chaserX,
-      chaserY + chaser.jump.yOffset,
-      chaserW,
-      chaserH
-    );
-
-
+    ctx.fillStyle = this.staggerTime > 0 ? '#a55' : '#f44';
+    ctx.fillRect(this.x, this.y + this.jump.yOffset, this.width, this.height);
+  
+    ctx.strokeStyle = this.staggerTime > 0 ? '#622' : '#a22';
+    ctx.strokeRect(this.x, this.y + this.jump.yOffset, this.width, this.height);
   }
 }
 // const runner = {
