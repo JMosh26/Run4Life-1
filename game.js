@@ -325,8 +325,70 @@ class Chaser extends Entity {
     this.blocked = false;
   }
 
-  update(delta) {}
-  draw(ctx) {}
+  update(delta, runner, obstacles, worldSpeed) {
+      // --- Chaser movement ---
+    const runnerCX = runner.x + runner.width / 2;
+    const runnerCY = runner.y + runner.height / 2;
+    const chaserCX = this.x + this.width / 2;
+    const chaserCY = this.y + this.height / 2;
+
+    const dx = runnerCX - chaserCX;
+    const dy = runnerCY - chaserCY;
+    const dist = Math.hypot(dx, dy);
+
+    // --- Blocked check ---
+    let blockedByObstacle = false;
+    for (const o of obstacles) {
+      if (!o.chaserDelay) continue;
+      if (o.chaserJumped) continue;
+
+      const obstacleCenterX = o.x + o.width / 2;
+      const gap = obstacleCenterX - chaserCX;
+
+      if (gap > 0 && gap < CHASER_STOP_DISTANCE) {
+        if (!this.jump.targetId || this.jump.targetId !== o.id) {
+          blockedByObstacle = true;
+          break;
+        }
+      }
+    }
+
+  this.blocked = blockedByObstacle;
+
+  // --- Speed ---
+  let chaserSpeed = 45;
+  if (this.staggerTime > 0) {
+    chaserSpeed *= CHASER_STAGGER_FACTOR;
+  }
+
+  // --- Movement ---
+  if (blockedByObstacle) {
+    this.x -= worldSpeed * delta * CHASER_BLOCK_DRIFT;
+  } else if (dist > 1) {
+    const move = (dx / dist) * chaserSpeed * delta;
+    this.x += move;
+    this.y += (dy / dist) * chaserSpeed * delta;
+    this.distanceTraveled = (this.distanceTraveled || 0) + move;
+  }
+}
+  draw(ctx) {
+    ctx.fillStyle = chaser.staggerTime > 0 ? '#a55' : '#f44';
+    ctx.fillRect(
+      chaserX,
+      chaserY + chaser.jump.yOffset,
+      chaserW,
+      chaserH
+    );
+    ctx.strokeStyle = chaser.staggerTime > 0 ? '#622' : '#a22';
+    ctx.strokeRect(
+      chaserX,
+      chaserY + chaser.jump.yOffset,
+      chaserW,
+      chaserH
+    );
+
+
+  }
 }
 // const runner = {
 //   x: canvas.width / 2 - ENTITY_WIDTH / 2,
@@ -884,51 +946,11 @@ function update(delta) {
   if (wrongFlashTime > 0) wrongFlashTime -= delta;
   if (shakeTime > 0) shakeTime -= delta;
 
+  // -- Runner Update -- //
   runner.update(delta);
-    // --- Chaser movement ---
-  const runnerCX = runner.x + runner.width / 2;
-  const runnerCY = runner.y + runner.height / 2;
-  const chaserCX = chaser.x + chaser.width / 2;
-  const chaserCY = chaser.y + chaser.height / 2;
 
-  const dx = runnerCX - chaserCX;
-  const dy = runnerCY - chaserCY;
-  const dist = Math.hypot(dx, dy);
-
-
-  let blockedByObstacle = false;
-  for (const o of obstacles) {
-    if (!o.chaserDelay) continue;      // only paused for player-typed obstacles
-    if (o.chaserJumped) continue;      // already jumped → no longer blocks
-
-    const obstacleCenterX = o.x + o.width / 2;
-    const gap = obstacleCenterX - chaserCX;
-
-    if (gap > 0 && gap < CHASER_STOP_DISTANCE) {
-      // Only block if the chaser hasn't jumped this one yet
-      if (!chaser.jump.targetId || chaser.jump.targetId !== o.id) {
-        blockedByObstacle = true;
-        break;
-      }
-    }
-  }
-
-let chaserSpeed = 45;
-if (chaser.staggerTime > 0) {
-  chaserSpeed *= CHASER_STAGGER_FACTOR;
-}
-
-if (blockedByObstacle) {
-  // Slide with the floor — appears stationary relative to the ground
-  chaser.x -= worldSpeed * delta * CHASER_BLOCK_DRIFT;
-} else if (dist > 1) {
-  // chaser.x += (dx / dist) * chaserSpeed * delta;
-  // chaser.y += (dy / dist) * chaserSpeed * delta;
-  const move = (dx / dist) * chaserSpeed * delta;
-  chaser.x += move;
-  chaser.y += (dy / dist) * chaserSpeed * delta;
-  chaserDistanceTraveled += move;
-}
+  // -- Chaser Update -- //
+  chaser.update(delta, runner, obstacles, worldSpeed);
 
 
   // --- Floor scroll ---
@@ -939,7 +961,7 @@ if (blockedByObstacle) {
   distanceScore += worldSpeed * delta * SCORE_PER_PIXEL;
 
   for (let i = scorePopups.length - 1; i >= 0; i--) {
-  scorePopups[i].life -= delta;
+  scorePopups[i].life -= delta; 
   scorePopups[i].y -= 40 * delta;   // drift upward
   if (scorePopups[i].life <= 0) scorePopups.splice(i, 1);
   }
@@ -1080,20 +1102,7 @@ const chaserW = chaser.slide.active ? chaser.slide.width : chaser.width;
 const chaserX = chaser.x - (chaserW - chaser.width) / 2;
 const chaserY = chaser.y + (chaser.height - chaserH);
 
-ctx.fillStyle = chaser.staggerTime > 0 ? '#a55' : '#f44';
-ctx.fillRect(
-  chaserX,
-  chaserY + chaser.jump.yOffset,
-  chaserW,
-  chaserH
-);
-ctx.strokeStyle = chaser.staggerTime > 0 ? '#622' : '#a22';
-ctx.strokeRect(
-  chaserX,
-  chaserY + chaser.jump.yOffset,
-  chaserW,
-  chaserH
-);
+chaser.draw(ctx);
 
   
 obstacles.forEach(o => {
