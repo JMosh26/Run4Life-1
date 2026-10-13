@@ -379,6 +379,36 @@ class Chaser extends Entity {
     ctx.strokeRect(this.x, this.y + this.jump.yOffset, this.width, this.height);
   }
 }
+
+class Obstacle extends Entity {
+  constructor(x, y, width, height, word, type, variantIndex) {
+    super(x, y, width, height);
+
+    this.word = word;
+    this.type = type;                 // 'jump' or 'slide'
+    this.variantIndex = variantIndex;
+
+    // State flags
+    this.cleared = false;
+    this.awaitingJump = false;
+    this.awaitingSlide = false;
+    this.chaserDelay = false;
+    this.chaserJumped = false;
+    this.chaserSlid = false;
+    this.hitRunner = false;
+
+    // ID assigned externally by the spawn factory
+    this.id = null;
+  }
+
+  update(delta, worldSpeed) {
+    this.x -= worldSpeed * delta;
+  }
+
+  draw(ctx) {
+    // Moved here in Step 4c
+  }
+}
 // const runner = {
 //   x: canvas.width / 2 - ENTITY_WIDTH / 2,
 //   y: canvas.height / 2 - ENTITY_HEIGHT / 2,
