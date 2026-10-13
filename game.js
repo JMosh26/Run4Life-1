@@ -88,7 +88,6 @@ const runnerAnim = {
 
 //SLOW MOTION, JUMPING AND SLIDING 
 const SLOWMO_DISTANCE = 220;    // how close an obstacle must be to trigger slow-mo
-const SLOWMO_FACTOR = 0.1;     // 0.35 = 35% speed. Lower = slower
 const JUMP_DURATION = 1;      // seconds in the air
 const JUMP_HEIGHT = 150;         // peak pixels above the ground
 const CHASER_JUMP_DELAY = 0.25; // chaser starts its jump later
@@ -101,6 +100,13 @@ const SLIDE_WIDTH = 50;
 const CHASER_STOP_DISTANCE = 130;      // chaser never gets closer than this to a pending obstacle
 const CHASER_JUMP_CUE = 50;           // when the obstacle is this close, jump
 const CHASER_JUMP_DURATION = 0.8;
+//Slow-motion scaling 
+const SLOWMO_FACTOR_MIN = 0.07;   // deepest slow (longest words)
+const SLOWMO_FACTOR_MAX = 0.3;    // mildest slow (shortest words)
+
+const SLOWMO_WORD_LENGTH_MIN = 3;   // shortest word in your pools
+const SLOWMO_WORD_LENGTH_MAX = 10;  // longest word in your pools
+
 
 //CHASER STAGGER
 const CHASER_STAGGER_DURATION = 1.2; // how long the slowdown lasts
@@ -146,6 +152,8 @@ let shakeTime = 0;          // seconds remaining on the camera shake
 const WRONG_FLASH_DURATION = 0.2;
 const SHAKE_DURATION = 0.25;
 const SHAKE_INTENSITY = 8;  // pixels of offset at peak
+
+
 
 let floorScroll = 0;      
 
@@ -336,7 +344,8 @@ function getTimeScale() {
     if (distance > 0 && distance < SLOWMO_DISTANCE) {
       // Closer = slower
       const t = distance / SLOWMO_DISTANCE;         // 1 → 0 as it approaches
-      const scale = SLOWMO_FACTOR + (1 - SLOWMO_FACTOR) * t;
+      const factor = getSlowFactorForWord(o.word);
+      const scale = factor + (1 - factor) * t;
       minScale = Math.min(minScale, scale);
     }
   }
@@ -471,6 +480,15 @@ function getCurrentWordPool() {
   if (distanceTraveled >= WORD_TIER_3_DISTANCE) return WORD_POOLS.hard;
   if (distanceTraveled >= WORD_TIER_2_DISTANCE) return WORD_POOLS.medium;
   return WORD_POOLS.easy;
+}
+
+function getSlowFactorForWord(word) {
+  const len = word.length;
+  const t = Math.min(
+    Math.max((len - SLOWMO_WORD_LENGTH_MIN) / (SLOWMO_WORD_LENGTH_MAX - SLOWMO_WORD_LENGTH_MIN), 0),
+    1
+  );
+  return SLOWMO_FACTOR_MAX + (SLOWMO_FACTOR_MIN - SLOWMO_FACTOR_MAX) * t;
 }
 
 function getSlideDurationForDistance() {
@@ -1019,7 +1037,7 @@ obstacles.forEach(o => {
   const timeScale = getTimeScale();
   if (timeScale < 1) {
     // Fade the intensity based on how slow it is
-    const intensity = (1 - timeScale) / (1 - SLOWMO_FACTOR); // 0 → 1
+    const intensity = (1 - timeScale) / (1 - SLOWMO_FACTOR_MIN); // 0 → 1
     ctx.fillStyle = `rgba(255, 215, 0, ${intensity * 0.08})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
