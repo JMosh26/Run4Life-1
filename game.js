@@ -265,9 +265,6 @@ class Runner extends Entity {
 // };
 const runner = new Runner(0, 0);
 
-const runnerJump = runner.jump;
-const runnerSlide = runner.slide;
-const runnerAnim = runner.anim;
 // const chaser = {
 //   x: -ENTITY_WIDTH / 2,   // half off the left edge
 //   y: canvas.height / 2 - ENTITY_HEIGHT / 2,
@@ -419,9 +416,9 @@ function getTimeScale() {
 
 
 function getJumpShrinkFactor() {
-  if (!runnerJump.active) return 1;
+  if (!runner.jump.active) return 1;
 
-  const t = runnerJump.time / runnerJump.duration;
+  const t = runner.jump.time / runner.jump.duration;
   const easeIn = Math.min(t * 5, 1);
   const easeOut = Math.min((1 - t) * 5, 1);
   const phase = Math.min(easeIn, easeOut);
@@ -436,19 +433,19 @@ function getRunnerBounds() {
   const HITBOX_INSET = 0.8;      // hitbox is 80% of sprite size
 
   // Compute sprite footprint (mirrors the draw code exactly)
-  const isSliding = runnerSlide.active;
+  const isSliding = runner.slide.active;
 
     // const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
     // const spriteH = ENTITY_HEIGHT * SPRITE_SCALE;
-  const spriteW = (isSliding ? runnerSlide.width : ENTITY_WIDTH) * SPRITE_SCALE;
-  const spriteH = (isSliding ? runnerSlide.height : ENTITY_HEIGHT) * SPRITE_SCALE;
+  const spriteW = (isSliding ? runner.slide.width : ENTITY_WIDTH) * SPRITE_SCALE;
+  const spriteH = (isSliding ? runner.slide.height : ENTITY_HEIGHT) * SPRITE_SCALE;
   const spriteX = runner.x + (runner.width - spriteW) / 2;
-  const spriteY = runner.y + runner.height - spriteH + runnerJump.yOffset;
+  const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
 
   // Slide — return the sprite footprint, or a slightly inset version
   if (isSliding) {
-    const w = runnerSlide.width;
-    const h = runnerSlide.height;
+    const w = runner.slide.width;
+    const h = runner.slide.height;
     return {
       x: runner.x - (w - runner.width) / 2,
       y: runner.y + (runner.height - h),
@@ -458,7 +455,7 @@ function getRunnerBounds() {
   }
 
   // Jump — shrink toward a cube at the peak
-  if (runnerJump.active) {
+  if (runner.jump.active) {
     const factor = getJumpShrinkFactor();
     const w = spriteW * HITBOX_INSET * factor;
     const h = spriteH * HITBOX_INSET * factor;
@@ -583,7 +580,7 @@ function getSlideDurationForDistance() {
 }
 
 function checkActionTriggers() {
-  if (runnerJump.active || runnerSlide.active) return;
+  if (runner.jump.active || runner.slide.active) return;
 
   const runnerCenterX = runner.x + runner.width / 2;
 
@@ -660,20 +657,20 @@ function getJumpDurationForDistance() {
   return Math.max(0.8, Math.min(airtime, 1.5));   // clamp
 }
 function triggerRunnerJump() {
-  runnerJump.active = true;
-  runnerJump.time = 0;
-  runnerJump.duration = getJumpDurationForDistance();
+  runner.jump.active = true;
+  runner.jump.time = 0;
+  runner.jump.duration = getJumpDurationForDistance();
 
-  runnerAnim.frame = 0;   // ← start from frame 0
-  runnerAnim.timer = 0;
+  runner.anim.frame = 0;   // ← start from frame 0
+  runner.anim.timer = 0;
 }
 function triggerRunnerSlide() {
-  runnerSlide.active = true;
-  runnerSlide.time = 0;
-  runnerSlide.duration = getSlideDurationForDistance();
+  runner.slide.active = true;
+  runner.slide.time = 0;
+  runner.slide.duration = getSlideDurationForDistance();
 
-  runnerAnim.frame = 0;
-  runnerAnim.timer = 0;
+  runner.anim.frame = 0;
+  runner.anim.timer = 0;
 }
 function checkTypedMatch() {
   if (!targetedObstacle) {
@@ -778,9 +775,9 @@ function updateJump(jump, delta) {
     jump.yOffset = 0;
     if (jump === chaserJump) jump.targetId = null; 
 
-    if (jump === runnerJump) {
-      runnerAnim.frame = runnerAnim.frame % RUN_FRAMES;
-      runnerAnim.timer = 0;
+    if (jump === runner.jump) {
+      runner.anim.frame = runner.anim.frame % RUN_FRAMES;
+      runner.anim.timer = 0;
     }
     return;
   }
@@ -802,9 +799,9 @@ function updateSlide(slide, entity, delta) {
     slide.width = entity.width;
     if (slide === chaserSlide) slide.targetId = null;
 
-    if (slide === runnerSlide) {
-      runnerAnim.frame = runnerAnim.frame % RUN_FRAMES;
-      runnerAnim.timer = 0;
+    if (slide === runner.slide) {
+      runner.anim.frame = runner.anim.frame % RUN_FRAMES;
+      runner.anim.timer = 0;
     }
     return;
   }
@@ -826,20 +823,20 @@ function update(delta) {
   if (wrongFlashTime > 0) wrongFlashTime -= delta;
   if (shakeTime > 0) shakeTime -= delta;
 
-  const activeFrameCount = runnerJump.active ? JUMP_FRAMES
-                       : runnerSlide.active ? SLIDE_FRAMES
+  const activeFrameCount = runner.jump.active ? JUMP_FRAMES
+                       : runner.slide.active ? SLIDE_FRAMES
                        : RUN_FRAMES;
 
-  const activeFps = runnerJump.active
-                  ? JUMP_FRAMES / runnerJump.duration
-                  : runnerSlide.active
-                    ? SLIDE_FRAMES / runnerSlide.duration
-                    : runnerAnim.fps;
+  const activeFps = runner.jump.active
+                  ? JUMP_FRAMES / runner.jump.duration
+                  : runner.slide.active
+                    ? SLIDE_FRAMES / runner.slide.duration
+                    : runner.anim.fps;
 
-  runnerAnim.timer += delta;
-  if (runnerAnim.timer >= 1 / activeFps) {
-    runnerAnim.timer = 0;
-    runnerAnim.frame = (runnerAnim.frame + 1) % activeFrameCount;
+  runner.anim.timer += delta;
+  if (runner.anim.timer >= 1 / activeFps) {
+    runner.anim.timer = 0;
+    runner.anim.frame = (runner.anim.frame + 1) % activeFrameCount;
   }
     // --- Chaser movement ---
   const runnerCX = runner.x + runner.width / 2;
@@ -920,8 +917,8 @@ if (blockedByObstacle) {
   }
   checkActionTriggers();
   checkChaserAction();
-  updateJump(runnerJump, delta);
-  updateSlide(runnerSlide, runner, delta);
+  updateJump(runner.jump, delta);
+  updateSlide(runner.slide, runner, delta);
   
 
   // Handle the chaser's delayed jump
@@ -987,10 +984,10 @@ function draw() {
   drawMeter();
 
 // Runner
-const runnerH = runnerSlide.active ? runnerSlide.height : runner.height;
-const runnerW = runnerSlide.active ? runnerSlide.width : runner.width;
+const runnerH = runner.slide.active ? runner.slide.height : runner.height;
+const runnerW = runner.slide.active ? runner.slide.width : runner.width;
 const runnerX = runner.x - (runnerW - runner.width) / 2;
-const runnerY = runner.y + (runner.height - runnerH) + runnerJump.yOffset;
+const runnerY = runner.y + (runner.height - runnerH) + runner.jump.yOffset;
 
   // // Debug reference rectangle (behind) — remove after tuning
 // const dbg = getRunnerBounds();
@@ -1005,20 +1002,20 @@ const SPRITE_SCALE = 2.0;
 const SLIDE_STRETCH_X = 1.5;
 const SLIDE_STRETCH_Y = 0.8;
 
-const isJumping = runnerJump.active;
-const isSliding = runnerSlide.active;
+const isJumping = runner.jump.active;
+const isSliding = runner.slide.active;
 
 const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
 const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
 const spriteX = runner.x + (runner.width - spriteW) / 2;
-const spriteY = runner.y + runner.height - spriteH + runnerJump.yOffset;
+const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
 
 const activeSheet = isSliding ? slideSheet : isJumping ? jumpSheet : runSheet;
 const activeFrameW = isSliding ? SLIDE_FRAME_W : isJumping ? JUMP_FRAME_W : RUN_FRAME_W;
 const activeFrameH = isSliding ? SLIDE_FRAME_H : isJumping ? JUMP_FRAME_H : RUN_FRAME_H;
 
 if (activeSheet.complete && activeSheet.naturalWidth > 0) {
-  const sx = runnerAnim.frame * activeFrameW;
+  const sx = runner.anim.frame * activeFrameW;
 
   ctx.drawImage(
     activeSheet,
@@ -1270,11 +1267,11 @@ function resetGame() {
   score = 0;
   distanceScore = 0;
 
-  runnerJump.active = false;
-  runnerJump.time = 0;
-  runnerJump.yOffset = 0;
-  runnerAnim.frame = 0;
-  runnerAnim.timer = 0;
+  runner.jump.active = false;
+  runner.jump.time = 0;
+  runner.jump.yOffset = 0;
+  runner.anim.frame = 0;
+  runner.anim.timer = 0;
 
   chaserJump.active = false;
   chaserJump.pending = false;
@@ -1283,10 +1280,10 @@ function resetGame() {
   chaserJump.yOffset = 0;
   chaserJump.targetId = null;
 
-  runnerSlide.active = false;
-  runnerSlide.time = 0;
-  runnerSlide.height = ENTITY_HEIGHT;
-  runnerSlide.width = ENTITY_WIDTH;
+  runner.slide.active = false;
+  runner.slide.time = 0;
+  runner.slide.height = ENTITY_HEIGHT;
+  runner.slide.width = ENTITY_WIDTH;
 
   chaserSlide.active = false;
   chaserSlide.time = 0;
