@@ -215,7 +215,31 @@ class Entity {
    * MUST be overridden by subclasses.
    */
   draw(ctx) {
-    throw new Error('Entity.draw() must be overridden by subclass');
+    const isJumping = this.jump.active;
+    const isSliding = this.slide.active;
+
+    const SPRITE_SCALE = 2.0;
+    const SLIDE_STRETCH_X = 1.5;
+    const SLIDE_STRETCH_Y = 0.8;
+
+    const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
+    const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
+    const spriteX = this.x + (this.width - spriteW) / 2;
+    const spriteY = this.y + this.height - spriteH + this.jump.yOffset;
+
+    const activeSheet = isSliding ? slideSheet : isJumping ? jumpSheet : runSheet;
+    const activeFrameW = isSliding ? SLIDE_FRAME_W : isJumping ? JUMP_FRAME_W : RUN_FRAME_W;
+    const activeFrameH = isSliding ? SLIDE_FRAME_H : isJumping ? JUMP_FRAME_H : RUN_FRAME_H;
+
+    if (activeSheet.complete && activeSheet.naturalWidth > 0) {
+      const sx = this.anim.frame * activeFrameW;
+
+      ctx.drawImage(
+        activeSheet,
+        sx, 0, activeFrameW, activeFrameH,
+        spriteX, spriteY, spriteW, spriteH
+      );
+    }
   }
 }
 /**
@@ -254,7 +278,24 @@ class Runner extends Entity {
   }
 
   // Placeholder methods — filled in during later sub-steps.
-  update(delta) {}
+  update(delta) {
+    const activeFrameCount = this.jump.active ? JUMP_FRAMES
+                       : this.slide.active ? SLIDE_FRAMES
+                       : RUN_FRAMES;
+
+    const activeFps = this.jump.active
+                  ? JUMP_FRAMES / this.jump.duration
+                  : this.slide.active
+                    ? SLIDE_FRAMES / this.slide.duration
+                    : this.anim.fps;
+
+    this.anim.timer += delta;
+  
+    if (this.anim.timer >= 1 / activeFps) {
+      this.anim.timer = 0;
+      this.anim.frame = (this.anim.frame + 1) % activeFrameCount;
+    }
+  }
   draw(ctx) {}
 }
 // const runner = {
@@ -823,21 +864,7 @@ function update(delta) {
   if (wrongFlashTime > 0) wrongFlashTime -= delta;
   if (shakeTime > 0) shakeTime -= delta;
 
-  const activeFrameCount = runner.jump.active ? JUMP_FRAMES
-                       : runner.slide.active ? SLIDE_FRAMES
-                       : RUN_FRAMES;
-
-  const activeFps = runner.jump.active
-                  ? JUMP_FRAMES / runner.jump.duration
-                  : runner.slide.active
-                    ? SLIDE_FRAMES / runner.slide.duration
-                    : runner.anim.fps;
-
-  runner.anim.timer += delta;
-  if (runner.anim.timer >= 1 / activeFps) {
-    runner.anim.timer = 0;
-    runner.anim.frame = (runner.anim.frame + 1) % activeFrameCount;
-  }
+  runner.update(delta);
     // --- Chaser movement ---
   const runnerCX = runner.x + runner.width / 2;
   const runnerCY = runner.y + runner.height / 2;
@@ -997,32 +1024,35 @@ const runnerY = runner.y + (runner.height - runnerH) + runner.jump.yOffset;
 // ctx.lineWidth = 2;
 // ctx.strokeRect(dbg.x, dbg.y, dbg.width, dbg.height);
 
-// 2. Sprite — always full standing size
-const SPRITE_SCALE = 2.0;
-const SLIDE_STRETCH_X = 1.5;
-const SLIDE_STRETCH_Y = 0.8;
+//Runner sheet
+runner.draw(ctx);
 
-const isJumping = runner.jump.active;
-const isSliding = runner.slide.active;
+// Implementing sprite sheet using Javascript
+// const SPRITE_SCALE = 2.0;
+// const SLIDE_STRETCH_X = 1.5;
+// const SLIDE_STRETCH_Y = 0.8;
 
-const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
-const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
-const spriteX = runner.x + (runner.width - spriteW) / 2;
-const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
+// const isJumping = runner.jump.active;
+// const isSliding = runner.slide.active;
 
-const activeSheet = isSliding ? slideSheet : isJumping ? jumpSheet : runSheet;
-const activeFrameW = isSliding ? SLIDE_FRAME_W : isJumping ? JUMP_FRAME_W : RUN_FRAME_W;
-const activeFrameH = isSliding ? SLIDE_FRAME_H : isJumping ? JUMP_FRAME_H : RUN_FRAME_H;
+// const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
+// const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
+// const spriteX = runner.x + (runner.width - spriteW) / 2;
+// const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
 
-if (activeSheet.complete && activeSheet.naturalWidth > 0) {
-  const sx = runner.anim.frame * activeFrameW;
+// const activeSheet = isSliding ? slideSheet : isJumping ? jumpSheet : runSheet;
+// const activeFrameW = isSliding ? SLIDE_FRAME_W : isJumping ? JUMP_FRAME_W : RUN_FRAME_W;
+// const activeFrameH = isSliding ? SLIDE_FRAME_H : isJumping ? JUMP_FRAME_H : RUN_FRAME_H;
 
-  ctx.drawImage(
-    activeSheet,
-    sx, 0, activeFrameW, activeFrameH,
-    spriteX, spriteY, spriteW, spriteH
-  );
-}
+// if (activeSheet.complete && activeSheet.naturalWidth > 0) {
+//   const sx = runner.anim.frame * activeFrameW;
+
+//   ctx.drawImage(
+//     activeSheet,
+//     sx, 0, activeFrameW, activeFrameH,
+//     spriteX, spriteY, spriteW, spriteH
+//   );
+// }
 
 // Chaser
 const chaserH = chaserSlide.active ? chaserSlide.height : chaser.height;
