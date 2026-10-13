@@ -34,7 +34,7 @@ const SLIDE_FRAME_W = 200;
 const SLIDE_FRAME_H = 200;
 
 // Journey
-const JOURNEY_DURATION = 120;                     // seconds
+const JOURNEY_DURATION = 60;                     // seconds
 const JOURNEY_DISTANCE = JOURNEY_DURATION * 150;  // 18000px
 
 // Meter (horizontal bar at the top of the screen)
@@ -165,6 +165,7 @@ let lastHudUpdate = 0;      // for throttling HUD redraws
 
 //Distance Travelled
 let distanceTraveled = 0;
+let chaserDistanceTraveled = 0;
 //Hatch Position
 let hatchX = null;   // set later, when the hatch spawns
 
@@ -300,10 +301,6 @@ function getSpawnInterval() {
   return spawnInterval;
 }
 
-function getRunnerWorldX() {
-  return runnerStartX + distanceTraveled;
-}
-
 function getHatchWorldX() {
   return runnerStartX + JOURNEY_DISTANCE;
 }
@@ -347,29 +344,8 @@ function getTimeScale() {
 
   return minScale;
 }
-function worldToMeterX(worldX) {
-  const start = getMeterStartX();
-  const end = getMeterEndX();
-  const progress = Math.max(0, Math.min((worldX - start) / (end - start), 1));
 
-  const meterLeft = METER_MARGIN_X;
-  const meterWidth = canvas.width - METER_MARGIN_X * 2;
 
-  return meterLeft + progress * meterWidth;
-}
-function getMeterStartX() {
-  // The chaser's starting world X
-  return -ENTITY_WIDTH / 2;
-}
-
-function getMeterEndX() {
-  // The hatch's world X — but only known once the hatch spawns
-  // Before the hatch spawns, use the "goal" position
-  if (hatchX !== null) return hatchX;
-
-  // Goal position = runner's starting X + JOURNEY_DISTANCE
-  return runnerStartX + JOURNEY_DISTANCE;
-}
 function getJumpShrinkFactor() {
   if (!runnerJump.active) return 1;
 
@@ -379,7 +355,6 @@ function getJumpShrinkFactor() {
   const phase = Math.min(easeIn, easeOut);
   const factor = 1 - (1 - JUMP_HITBOX_HEIGHT / ENTITY_HEIGHT) * phase;
 
-  console.log('t:', t.toFixed(2), '| phase:', phase.toFixed(2), '| factor:', factor.toFixed(2));
   return factor;
 }
 
@@ -824,7 +799,7 @@ function update(delta) {
     }
   }
 
-let chaserSpeed = 30;
+let chaserSpeed = 45;
 if (chaserStaggerTime > 0) {
   chaserSpeed *= CHASER_STAGGER_FACTOR;
 }
@@ -833,8 +808,12 @@ if (blockedByObstacle) {
   // Slide with the floor — appears stationary relative to the ground
   chaser.x -= worldSpeed * delta * CHASER_BLOCK_DRIFT;
 } else if (dist > 1) {
-  chaser.x += (dx / dist) * chaserSpeed * delta;
+  // chaser.x += (dx / dist) * chaserSpeed * delta;
+  // chaser.y += (dy / dist) * chaserSpeed * delta;
+  const move = (dx / dist) * chaserSpeed * delta;
+  chaser.x += move;
   chaser.y += (dy / dist) * chaserSpeed * delta;
+  chaserDistanceTraveled += move;
 }
 
 
@@ -1041,7 +1020,6 @@ obstacles.forEach(o => {
   drawObstacleWord(o);
 });
 
-  drawScore(); 
 
   scorePopups.forEach(p => {
   const alpha = p.life / p.maxLife;
@@ -1078,28 +1056,32 @@ function drawMeter() {
   ctx.fillStyle = '#000';
   ctx.fillRect(meterLeft, meterCenterY - METER_HEIGHT / 2, meterWidth, METER_HEIGHT);
 
-  // Chaser marker (red)
-  const chaserMeterX = worldToMeterX(chaser.x);
-  ctx.fillStyle = '#f44';
-  ctx.fillRect(
-    chaserMeterX - METER_MARKER_WIDTH / 2,
-    meterCenterY - METER_MARKER_HEIGHT / 2,
-    METER_MARKER_WIDTH,
-    METER_MARKER_HEIGHT
-  );
+ // Chaser marker (red) — visual progress relative to the runner
+const runnerProgress = Math.min(distanceTraveled / JOURNEY_DISTANCE, 1);
+const chaserVisual = getChaserVisualProgress();
+const chaserMeterProgress = chaserVisual * runnerProgress;
+const chaserMeterX = meterLeft + chaserMeterProgress * meterWidth;
+
+ctx.fillStyle = '#f44';
+ctx.fillRect(
+  chaserMeterX - METER_MARKER_WIDTH / 2,
+  meterCenterY - METER_MARKER_HEIGHT / 2,
+  METER_MARKER_WIDTH,
+  METER_MARKER_HEIGHT
+);
 
   // Runner marker (green)
-  const runnerMeterX = worldToMeterX(runner.x);
-  ctx.fillStyle = '#4f4';
-  ctx.fillRect(
-    runnerMeterX - METER_MARKER_WIDTH / 2,
-    meterCenterY - METER_MARKER_HEIGHT / 2,
-    METER_MARKER_WIDTH,
-    METER_MARKER_HEIGHT
-  );
+const runnerMeterX = meterLeft + runnerProgress * meterWidth;
+ctx.fillStyle = '#4f4';
+ctx.fillRect(
+  runnerMeterX - METER_MARKER_WIDTH / 2,
+  meterCenterY - METER_MARKER_HEIGHT / 2,
+  METER_MARKER_WIDTH,
+  METER_MARKER_HEIGHT
+);
 
   // Hatch marker (sky blue) — fixed at the end
-  const hatchMeterX = worldToMeterX(getMeterEndX());
+  const hatchMeterX = meterLeft + meterWidth;
   ctx.fillStyle = '#4bc9f0';
   ctx.fillRect(
     hatchMeterX - METER_MARKER_WIDTH / 2,
@@ -1128,7 +1110,17 @@ function rectsOverlap(a, b) {
     a.y + a.height > b.y
   );
 }
+function getChaserVisualProgress() {
+  const chaserStartX = -ENTITY_WIDTH / 2;
+  const runnerCX = runner.x + runner.width / 2;
+  const chaserCX = chaser.x + chaser.width / 2;
 
+  const totalDistance = runnerCX - chaserStartX;
+  if (totalDistance <= 0) return 1;
+
+  const traveled = chaserCX - chaserStartX;
+  return Math.max(0, Math.min(traveled / totalDistance, 1));
+}
 
 function spawnObstacle() {
   const pool = getCurrentWordPool();
@@ -1192,6 +1184,7 @@ function resetGame() {
   currentTyped = '';
   let runnerStartX = 0;
   distanceTraveled = 0;
+  chaserDistanceTraveled = 0;
   
 
   chaser.x = -ENTITY_WIDTH / 2;
