@@ -77,12 +77,6 @@ OBSTACLE_VARIANTS.forEach(variant => {
   });
 });
 
-//Runner Animation Initializing
-const runnerAnim = {
-  frame: 0,
-  timer: 0,
-  fps: 10,
-};
 
 
 
@@ -224,18 +218,56 @@ class Entity {
     throw new Error('Entity.draw() must be overridden by subclass');
   }
 }
+/**
+ * Runner — the player-controlled entity.
+ *
+ * Demonstrates:
+ *   - Inheritance: extends Entity (inherits x, y, width, height, getBounds)
+ *   - Encapsulation: owns its jump, slide, and animation state
+ *   - Polymorphism: implements update() and draw() for the game loop
+ */
+class Runner extends Entity {
+  constructor(x, y) {
+    super(x, y, ENTITY_WIDTH, ENTITY_HEIGHT);
 
+    this.jump = {
+      active: false,
+      time: 0,
+      duration: JUMP_DURATION,
+      height: JUMP_HEIGHT,
+      yOffset: 0,
+    };
+
+    this.slide = {
+      active: false,
+      time: 0,
+      duration: SLIDE_DURATION,
+      height: ENTITY_HEIGHT,
+      width: ENTITY_WIDTH,
+    };
+
+    this.anim = {
+      frame: 0,
+      timer: 0,
+      fps: 10,
+    };
+  }
+
+  // Placeholder methods — filled in during later sub-steps.
+  update(delta) {}
+  draw(ctx) {}
+}
 // const runner = {
 //   x: canvas.width / 2 - ENTITY_WIDTH / 2,
 //   y: canvas.height / 2 - ENTITY_HEIGHT / 2,
 //   width: ENTITY_WIDTH,
 //   height: ENTITY_HEIGHT,
 // };
-const runner = {
-  x: 0, y: 0,
-  width: ENTITY_WIDTH,
-  height: ENTITY_HEIGHT,
-};
+const runner = new Runner(0, 0);
+
+const runnerJump = runner.jump;
+const runnerSlide = runner.slide;
+const runnerAnim = runner.anim;
 // const chaser = {
 //   x: -ENTITY_WIDTH / 2,   // half off the left edge
 //   y: canvas.height / 2 - ENTITY_HEIGHT / 2,
@@ -248,13 +280,6 @@ const chaser = {
   width: ENTITY_WIDTH,
   height: ENTITY_HEIGHT,
 };
-const runnerJump = {
-  active: false,
-  time: 0,          // elapsed since jump started
-  duration: JUMP_DURATION,
-  height: JUMP_HEIGHT,
-  yOffset: 0,       // current vertical offset from ground
-};
 const chaserJump = {
   active: false,
   time: 0,
@@ -262,13 +287,6 @@ const chaserJump = {
   height: JUMP_HEIGHT,
   yOffset: 0,
   targetId: null,
-};
-const runnerSlide = {
-  active: false,
-  time: 0,
-  duration: SLIDE_DURATION,
-  height: ENTITY_HEIGHT,
-  width: ENTITY_WIDTH,
 };
 
 const chaserSlide = {
