@@ -177,7 +177,53 @@ let chaserDistanceTraveled = 0;
 //Hatch Position
 let hatchX = null;   // set later, when the hatch spawns
 
+/**
+ * Entity — Abstract base class for all game objects with a position and size.
+ *
+ * Demonstrates:
+ *   - Abstraction: defines the interface (update, draw, getBounds)
+ *     that all subclasses must implement.
+ *   - Encapsulation: holds x, y, width, height as core state.
+ *   - Inheritance base: parent of Runner, Chaser, Obstacle, Hatch.
+ *   - Polymorphism: all subclasses can be treated uniformly via update/draw.
+ */
+class Entity {
+  constructor(x, y, width, height) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+  }
 
+  /**
+   * Returns the current axis-aligned bounding box.
+   * Overridable by subclasses (e.g., for slide flattening, jump shrink).
+   */
+  getBounds() {
+    return {
+      x: this.x,
+      y: this.y,
+      width: this.width,
+      height: this.height,
+    };
+  }
+
+  /**
+   * Update this entity's state each frame.
+   * MUST be overridden by subclasses.
+   */
+  update(delta) {
+    throw new Error('Entity.update() must be overridden by subclass');
+  }
+
+  /**
+   * Draw this entity to the canvas.
+   * MUST be overridden by subclasses.
+   */
+  draw(ctx) {
+    throw new Error('Entity.draw() must be overridden by subclass');
+  }
+}
 
 // const runner = {
 //   x: canvas.width / 2 - ENTITY_WIDTH / 2,
