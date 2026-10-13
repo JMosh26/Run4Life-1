@@ -33,6 +33,20 @@ const SLIDE_FRAMES = 14;
 const SLIDE_FRAME_W = 200;
 const SLIDE_FRAME_H = 200;
 
+// Journey
+const JOURNEY_DURATION = 120;                     // seconds
+const JOURNEY_DISTANCE = JOURNEY_DURATION * 150;  // 18000px
+
+// Meter (horizontal bar at the top of the screen)
+const METER_MARGIN_TOP = 30;
+const METER_MARGIN_X = 60;
+const METER_HEIGHT = 12;
+const METER_MARKER_WIDTH = 12;
+const METER_MARKER_HEIGHT = 24;
+
+// Hatch — position relative to the runner's start
+const HATCH_OFFSET_FROM_RUNNER = JOURNEY_DISTANCE;
+
 //Obstacle Variants (1 - Barrier 2 - Stop sign 3 - Cone)
 const OBSTACLE_VARIANTS = [
   {
@@ -148,6 +162,11 @@ let nextObstacleId = 0;
 let score = 0;
 let distanceScore = 0;      // accumulates over time (as a float)
 let lastHudUpdate = 0;      // for throttling HUD redraws
+
+//Distance Travelled
+let distanceTraveled = 0;
+//Hatch Position
+let hatchX = null;   // set later, when the hatch spawns
 
 
 
@@ -281,6 +300,16 @@ function getSpawnInterval() {
   return spawnInterval;
 }
 
+function getRunnerWorldX() {
+  return runnerStartX + distanceTraveled;
+}
+
+function getHatchWorldX() {
+  return runnerStartX + JOURNEY_DISTANCE;
+}
+
+
+
 function gameLoop(timestamp) {
   let delta = (timestamp - lastTime) / 1000;
   lastTime = timestamp;
@@ -317,6 +346,29 @@ function getTimeScale() {
   }
 
   return minScale;
+}
+function worldToMeterX(worldX) {
+  const start = getMeterStartX();
+  const end = getMeterEndX();
+  const progress = Math.max(0, Math.min((worldX - start) / (end - start), 1));
+
+  const meterLeft = METER_MARGIN_X;
+  const meterWidth = canvas.width - METER_MARGIN_X * 2;
+
+  return meterLeft + progress * meterWidth;
+}
+function getMeterStartX() {
+  // The chaser's starting world X
+  return -ENTITY_WIDTH / 2;
+}
+
+function getMeterEndX() {
+  // The hatch's world X — but only known once the hatch spawns
+  // Before the hatch spawns, use the "goal" position
+  if (hatchX !== null) return hatchX;
+
+  // Goal position = runner's starting X + JOURNEY_DISTANCE
+  return runnerStartX + JOURNEY_DISTANCE;
 }
 function getJumpShrinkFactor() {
   if (!runnerJump.active) return 1;
@@ -722,7 +774,8 @@ function updateSlide(slide, entity, delta) {
 }
 
 function update(delta) {
-  const worldSpeed = getWorldSpeed();   // compute once per frame
+  const worldSpeed = getWorldSpeed();   // compute once per frame 
+  distanceTraveled += worldSpeed * delta;
 
   //Countdown for wrong letter
   if (wrongFlashTime > 0) wrongFlashTime -= delta;
@@ -883,6 +936,7 @@ function draw() {
   }
 
   drawFloor();
+  drawMeter();
 
 // Runner
 const runnerH = runnerSlide.active ? runnerSlide.height : runner.height;
@@ -1014,6 +1068,58 @@ obstacles.forEach(o => {
   ctx.restore(); 
 }
 
+function drawMeter() {
+  const meterLeft = METER_MARGIN_X;
+  const meterWidth = canvas.width - METER_MARGIN_X * 2;
+  const meterY = METER_MARGIN_TOP + METER_MARKER_HEIGHT / 2;
+  const meterCenterY = meterY;
+
+  // Black track line
+  ctx.fillStyle = '#000';
+  ctx.fillRect(meterLeft, meterCenterY - METER_HEIGHT / 2, meterWidth, METER_HEIGHT);
+
+  // Chaser marker (red)
+  const chaserMeterX = worldToMeterX(chaser.x);
+  ctx.fillStyle = '#f44';
+  ctx.fillRect(
+    chaserMeterX - METER_MARKER_WIDTH / 2,
+    meterCenterY - METER_MARKER_HEIGHT / 2,
+    METER_MARKER_WIDTH,
+    METER_MARKER_HEIGHT
+  );
+
+  // Runner marker (green)
+  const runnerMeterX = worldToMeterX(runner.x);
+  ctx.fillStyle = '#4f4';
+  ctx.fillRect(
+    runnerMeterX - METER_MARKER_WIDTH / 2,
+    meterCenterY - METER_MARKER_HEIGHT / 2,
+    METER_MARKER_WIDTH,
+    METER_MARKER_HEIGHT
+  );
+
+  // Hatch marker (sky blue) — fixed at the end
+  const hatchMeterX = worldToMeterX(getMeterEndX());
+  ctx.fillStyle = '#4bc9f0';
+  ctx.fillRect(
+    hatchMeterX - METER_MARKER_WIDTH / 2,
+    meterCenterY - METER_MARKER_HEIGHT / 2,
+    METER_MARKER_WIDTH,
+    METER_MARKER_HEIGHT
+  );
+}
+
+function drawMarker(x, color) {
+  const meterY = METER_MARGIN_TOP + METER_MARKER_HEIGHT / 2;
+  ctx.fillStyle = color;
+  ctx.fillRect(
+    x - METER_MARKER_WIDTH / 2,
+    meterY - METER_MARKER_HEIGHT / 2,
+    METER_MARKER_WIDTH,
+    METER_MARKER_HEIGHT
+  );
+}
+
 function rectsOverlap(a, b) {
   return (
     a.x < b.x + b.width &&
@@ -1084,12 +1190,17 @@ function resetGame() {
   obstacles.length = 0;
   targetedObstacle = null;
   currentTyped = '';
+  let runnerStartX = 0;
+  distanceTraveled = 0;
+  
 
   chaser.x = -ENTITY_WIDTH / 2;
   chaser.y = getEntityY();
 
+  
   runner.x = canvas.width * 0.6 - runner.width / 2;
   runner.y = getEntityY();
+  runnerStartX = runner.x;
 
   spawnTimer = 0;
   lastTime = 0;
@@ -1140,7 +1251,8 @@ function resizeCanvas() {
 
   if (typeof runner !== 'undefined') {
     runner.x = canvas.width * 0.6 - runner.width / 2;
-    runner.y = lineY;
+    runner.y = getEntityY();
+    runnerStartX = runner.x;
   }
 
   if (typeof chaser !== 'undefined') {
