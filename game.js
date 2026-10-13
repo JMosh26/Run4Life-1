@@ -151,7 +151,7 @@ const SHAKE_INTENSITY = 8;  // pixels of offset at peak
 
 let floorScroll = 0;      
 
-let chaserStaggerTime = 0;          // seconds remaining on the stagger
+// let chaserStaggerTime = 0;          // seconds remaining on the stagger
 
 let lastTime = 0;
 let spawnTimer = 0;
@@ -298,6 +298,36 @@ class Runner extends Entity {
     }
   }
 }
+
+class Chaser extends Entity {
+  constructor(x, y) {
+    super(x, y, ENTITY_WIDTH, ENTITY_HEIGHT);
+
+    this.jump = {
+      active: false,
+      time: 0,
+      duration: JUMP_DURATION,
+      height: JUMP_HEIGHT,
+      yOffset: 0,
+      targetId: null,
+    };
+
+    this.slide = {
+      active: false,
+      time: 0,
+      duration: SLIDE_DURATION,
+      height: ENTITY_HEIGHT,
+      width: ENTITY_WIDTH,
+      targetId: null,
+    };
+
+    this.staggerTime = 0;
+    this.blocked = false;
+  }
+
+  update(delta) {}
+  draw(ctx) {}
+}
 // const runner = {
 //   x: canvas.width / 2 - ENTITY_WIDTH / 2,
 //   y: canvas.height / 2 - ENTITY_HEIGHT / 2,
@@ -306,35 +336,25 @@ class Runner extends Entity {
 // };
 const runner = new Runner(0, 0);
 
-// const chaser = {
-//   x: -ENTITY_WIDTH / 2,   // half off the left edge
-//   y: canvas.height / 2 - ENTITY_HEIGHT / 2,
-//   width: ENTITY_WIDTH,
-//   height: ENTITY_HEIGHT,
-// };
-const chaser = {
-  x: -ENTITY_WIDTH / 2,
-  y: 0,
-  width: ENTITY_WIDTH,
-  height: ENTITY_HEIGHT,
-};
-const chaserJump = {
-  active: false,
-  time: 0,
-  duration: JUMP_DURATION,
-  height: JUMP_HEIGHT,
-  yOffset: 0,
-  targetId: null,
-};
+const chaser = new Chaser(-ENTITY_WIDTH / 2, 0);
 
-const chaserSlide = {
-  active: false,
-  time: 0,
-  duration: SLIDE_DURATION,
-  height: ENTITY_HEIGHT,
-  width: ENTITY_WIDTH,
-  targetId: null,
-};
+// const chaserJump = {
+//   active: false,
+//   time: 0,
+//   duration: JUMP_DURATION,
+//   height: JUMP_HEIGHT,
+//   yOffset: 0,
+//   targetId: null,
+// };
+
+// const chaserSlide = {
+//   active: false,
+//   time: 0,
+//   duration: SLIDE_DURATION,
+//   height: ENTITY_HEIGHT,
+//   width: ENTITY_WIDTH,
+//   targetId: null,
+// };
 
 const WORD_POOLS = {
   easy: [
@@ -524,9 +544,9 @@ function getRunnerBounds() {
 
 
 function getChaserBounds() {
-  if (chaserSlide.active) {
-    const h = chaserSlide.height;
-    const w = chaserSlide.width;
+  if (chaser.slide.active) {
+    const h = chaser.slide.height;
+    const w = chaser.slide.width;
     return {
       x: chaser.x - (w - chaser.width) / 2,
       y: chaser.y + (chaser.height - h),
@@ -534,10 +554,10 @@ function getChaserBounds() {
       height: h,
     };
   }
-  if (chaserJump.active) {
+  if (chaser.jump.active) {
     return {
       x: chaser.x,
-      y: chaser.y + chaserJump.yOffset,
+      y: chaser.y + chaser.jump.yOffset,
       width: chaser.width,
       height: chaser.height,
     };
@@ -645,7 +665,7 @@ function checkActionTriggers() {
   }
 }
 function checkChaserAction() {
-  if (chaserJump.active || chaserSlide.active) return;
+  if (chaser.jump.active || chaser.slide.active) return;
 
   const chaserCX = chaser.x + chaser.width / 2;
 
@@ -658,16 +678,16 @@ function checkChaserAction() {
 
     if (gap > 0 && gap < CHASER_JUMP_CUE) {
       if (o.type === 'slide') {
-        chaserSlide.active = true;
-        chaserSlide.time = 0;
-        chaserSlide.duration = CHASER_JUMP_DURATION;
-        chaserSlide.targetId = o.id;
+        chaser.slide.active = true;
+        chaser.slide.time = 0;
+        chaser.slide.duration = CHASER_JUMP_DURATION;
+        chaser.slide.targetId = o.id;
         o.chaserSlid = true;
       } else {
-        chaserJump.active = true;
-        chaserJump.time = 0;
-        chaserJump.duration = CHASER_JUMP_DURATION;
-        chaserJump.targetId = o.id;
+        chaser.jump.active = true;
+        chaser.jump.time = 0;
+        chaser.jump.duration = CHASER_JUMP_DURATION;
+        chaser.jump.targetId = o.id;
         o.chaserJumped = true;
       }
       return;
@@ -814,7 +834,7 @@ function updateJump(jump, delta) {
     jump.active = false;
     jump.time = 0;
     jump.yOffset = 0;
-    if (jump === chaserJump) jump.targetId = null; 
+    if (jump === chaser.jump) jump.targetId = null; 
 
     if (jump === runner.jump) {
       runner.anim.frame = runner.anim.frame % RUN_FRAMES;
@@ -838,7 +858,7 @@ function updateSlide(slide, entity, delta) {
     slide.time = 0;
     slide.height = entity.height;
     slide.width = entity.width;
-    if (slide === chaserSlide) slide.targetId = null;
+    if (slide === chaser.slide) slide.targetId = null;
 
     if (slide === runner.slide) {
       runner.anim.frame = runner.anim.frame % RUN_FRAMES;
@@ -886,7 +906,7 @@ function update(delta) {
 
     if (gap > 0 && gap < CHASER_STOP_DISTANCE) {
       // Only block if the chaser hasn't jumped this one yet
-      if (!chaserJump.targetId || chaserJump.targetId !== o.id) {
+      if (!chaser.jump.targetId || chaser.jump.targetId !== o.id) {
         blockedByObstacle = true;
         break;
       }
@@ -894,7 +914,7 @@ function update(delta) {
   }
 
 let chaserSpeed = 45;
-if (chaserStaggerTime > 0) {
+if (chaser.staggerTime > 0) {
   chaserSpeed *= CHASER_STAGGER_FACTOR;
 }
 
@@ -949,11 +969,11 @@ if (blockedByObstacle) {
   
 
   // Handle the chaser's delayed jump
-  const chaserJumpDelta = chaserStaggerTime > 0
+  const chaserJumpDelta = chaser.staggerTime > 0
   ? delta * CHASER_STAGGER_FACTOR
   : delta;
-  updateJump(chaserJump, chaserJumpDelta);
-  updateSlide(chaserSlide, chaser, chaserJumpDelta);
+  updateJump(chaser.jump, chaserJumpDelta);
+  updateSlide(chaser.slide, chaser, chaserJumpDelta);
 
     // --- Collisions ---
   // --- Runner collision (uses visual bounds) ---
@@ -1055,22 +1075,22 @@ runner.draw(ctx);
 // }
 
 // Chaser
-const chaserH = chaserSlide.active ? chaserSlide.height : chaser.height;
-const chaserW = chaserSlide.active ? chaserSlide.width : chaser.width;
+const chaserH = chaser.slide.active ? chaser.slide.height : chaser.height;
+const chaserW = chaser.slide.active ? chaser.slide.width : chaser.width;
 const chaserX = chaser.x - (chaserW - chaser.width) / 2;
 const chaserY = chaser.y + (chaser.height - chaserH);
 
-ctx.fillStyle = chaserStaggerTime > 0 ? '#a55' : '#f44';
+ctx.fillStyle = chaser.staggerTime > 0 ? '#a55' : '#f44';
 ctx.fillRect(
   chaserX,
-  chaserY + chaserJump.yOffset,
+  chaserY + chaser.jump.yOffset,
   chaserW,
   chaserH
 );
-ctx.strokeStyle = chaserStaggerTime > 0 ? '#622' : '#a22';
+ctx.strokeStyle = chaser.staggerTime > 0 ? '#622' : '#a22';
 ctx.strokeRect(
   chaserX,
-  chaserY + chaserJump.yOffset,
+  chaserY + chaser.jump.yOffset,
   chaserW,
   chaserH
 );
@@ -1293,7 +1313,7 @@ function resetGame() {
 
   spawnTimer = 0;
   lastTime = 0;
-  chaserStaggerTime = 0;
+  chaser.staggerTime = 0;
   score = 0;
   distanceScore = 0;
 
@@ -1303,23 +1323,23 @@ function resetGame() {
   runner.anim.frame = 0;
   runner.anim.timer = 0;
 
-  chaserJump.active = false;
-  chaserJump.pending = false;
-  chaserJump.pendingTime = 0;
-  chaserJump.time = 0;
-  chaserJump.yOffset = 0;
-  chaserJump.targetId = null;
+  chaser.jump.active = false;
+  chaser.jump.pending = false;
+  chaser.jump.pendingTime = 0;
+  chaser.jump.time = 0;
+  chaser.jump.yOffset = 0;
+  chaser.jump.targetId = null;
 
   runner.slide.active = false;
   runner.slide.time = 0;
   runner.slide.height = ENTITY_HEIGHT;
   runner.slide.width = ENTITY_WIDTH;
 
-  chaserSlide.active = false;
-  chaserSlide.time = 0;
-  chaserSlide.height = ENTITY_HEIGHT;
-  chaserSlide.width = ENTITY_WIDTH;
-  chaserSlide.targetId = null;
+  chaser.slide.active = false;
+  chaser.slide.time = 0;
+  chaser.slide.height = ENTITY_HEIGHT;
+  chaser.slide.width = ENTITY_WIDTH;
+  chaser.slide.targetId = null;
 
 }
 
