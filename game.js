@@ -664,7 +664,7 @@ function drawObstacleWord(o) {
   const drawY = boxY + boxH / 2;
 
   for (let i = 0; i < word.length; i++) {
-    ctx.fillStyle = i < typed.length ? '#ffffff' : '#3d3d3d';
+    ctx.fillStyle = i < typed.length ? '#ffffff' : '#636363';
     ctx.fillText(word[i], drawX, drawY);
     drawX += widths[i] - LETTER_KERN;
   }
