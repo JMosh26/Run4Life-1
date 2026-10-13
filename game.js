@@ -125,8 +125,8 @@ const FLOOR_OFFSET = 0;      // gap between entity feet and floor top
 const SCORE_PER_PIXEL = 0.05;      // distance points per pixel scrolled
 const SCORE_PER_WORD = 100;        // bonus for each typed word
 const SCORE_LENGTH_BONUS = 10;     // extra per letter in the word
-const WORD_TIER_2_SCORE = 2000;
-const WORD_TIER_3_SCORE = 3000;
+const WORD_TIER_2_DISTANCE = 3000;
+const WORD_TIER_3_DISTANCE = 5250;
 const WORLD_SPEED_TIER_2 = 0.95;   // 5% slower at tier 2
 const WORLD_SPEED_TIER_3 = 0.90;   // 10% slower at tier 3
 const SPAWN_INTERVAL_TIER_2 = 3.0; // was 2.5
@@ -136,7 +136,7 @@ const SPAWN_INTERVAL_TIER_3 = 3.5; // even more space at tier 3
 const SLIDE_OBSTACLE_WIDTH = 50;
 const SLIDE_OBSTACLE_HEIGHT = 120;
 const SLIDE_OBSTACLE_GAP = 30;   // clearance between floor and block bottom
-const SLIDE_UNLOCK_SCORE = 1000;
+const SLIDE_UNLOCK_DISTANCE = 1500;
 const SLIDE_CHANCE_AFTER_UNLOCK = 0.5; 
 
 
@@ -288,16 +288,15 @@ function getGroundY() {
 }
 
 function getWorldSpeed() {
-  const total = getTotalScore();
-  if (total >= WORD_TIER_3_SCORE) return WORLD_SPEED * WORLD_SPEED_TIER_3;
-  if (total >= WORD_TIER_2_SCORE) return WORLD_SPEED * WORLD_SPEED_TIER_2;
+  if (distanceTraveled >= WORD_TIER_3_DISTANCE) return WORLD_SPEED * WORLD_SPEED_TIER_3;
+  if (distanceTraveled >= WORD_TIER_2_DISTANCE) return WORLD_SPEED * WORLD_SPEED_TIER_2;
   return WORLD_SPEED;
 }
 
 function getSpawnInterval() {
-  const total = getTotalScore();
-  if (total >= WORD_TIER_3_SCORE) return SPAWN_INTERVAL_TIER_3;
-  if (total >= WORD_TIER_2_SCORE) return SPAWN_INTERVAL_TIER_2;
+  const distanceTraveled = getdistanceTraveledScore();
+  if (distanceTraveled >= WORD_TIER_3_DISTAMCE) return SPAWN_INTERVAL_TIER_3;
+  if (distanceTraveled >= WORD_TIER_2_DISTANCE) return SPAWN_INTERVAL_TIER_2;
   return spawnInterval;
 }
 
@@ -467,24 +466,13 @@ function pickTargetObstacle() {
   }
 }
 
-function getTotalScore() {
-  return Math.floor(score + distanceScore);
-}
 
 function getCurrentWordPool() {
-  const total = getTotalScore();
-  if (total >= WORD_TIER_3_SCORE) return WORD_POOLS.hard;
-  if (total >= WORD_TIER_2_SCORE) return WORD_POOLS.medium;
+  if (distanceTraveled >= WORD_TIER_3_DISTANCE) return WORD_POOLS.hard;
+  if (distanceTraveled >= WORD_TIER_2_DISTANCE) return WORD_POOLS.medium;
   return WORD_POOLS.easy;
 }
 
-function drawScore() {
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 20px monospace';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'top';
-  ctx.fillText('SCORE: ' + getTotalScore(), canvas.width - 20, 20);
-}
 function getSlideDurationForDistance() {
   if (obstacles.length === 0) return SLIDE_DURATION;
 
@@ -884,8 +872,7 @@ if (blockedByObstacle) {
 
 function gameOver(reason) {
   cancelAnimationFrame(rafId);
-  const finalScore = getTotalScore();
-  alert('Game Over: ' + reason + '\n\nFinal Score: ' + finalScore);
+  alert('Game Over: ' + reason);
   resetGame();
   lastTime = performance.now();
   rafId = requestAnimationFrame(gameLoop);
@@ -1128,7 +1115,7 @@ function spawnObstacle() {
 
   // Decide type
   let type = 'jump';
-  if (getTotalScore() >= SLIDE_UNLOCK_SCORE) {
+  if (distanceTraveled >= SLIDE_UNLOCK_DISTANCE) {
     type = Math.random() < SLIDE_CHANCE_AFTER_UNLOCK ? 'slide' : 'jump';
   }
 
