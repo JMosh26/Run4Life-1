@@ -28,7 +28,18 @@ const SLIDE_FRAMES = 14;
 const SLIDE_FRAME_W = 200;
 const SLIDE_FRAME_H = 200;
 
+// -- Meter and Head Icon Images -- //
+const runnerHeadImage = new Image();
+runnerHeadImage.src = 'sprites/meter-head-runner.png';
 
+const chaserHeadImage = new Image();
+chaserHeadImage.src = 'sprites/meter-head-chaser.png';
+
+const hatchHeadImage = new Image();
+hatchHeadImage.src = 'sprites/meter-head-hatch.png';
+
+const meterBarImage = new Image();
+meterBarImage.src = 'sprites/meter-bar.png';
 // -- CHASER SPRITE FRAMES -- //
 const CHASER_FRAME_W = 300;
 const CHASER_FRAME_H = 300;
@@ -62,7 +73,8 @@ const JOURNEY_DURATION = 60;                     // seconds
 const JOURNEY_DISTANCE = JOURNEY_DURATION * 150;  // 18000px
 
 // Meter (horizontal bar at the top of the screen)
-const METER_MARGIN_TOP = 30;
+const METER_BOTTOM_MARGIN = 50; 
+const ICON_SIZE = 32;   
 const METER_MARGIN_X = 60;
 const METER_HEIGHT = 12;
 const METER_MARKER_WIDTH = 12;
@@ -1331,46 +1343,49 @@ obstacles.forEach(o => {
 function drawMeter() {
   const meterLeft = METER_MARGIN_X;
   const meterWidth = canvas.width - METER_MARGIN_X * 2;
-  const meterY = METER_MARGIN_TOP + METER_MARKER_HEIGHT / 2;
-  const meterCenterY = meterY;
 
-  // Black track line
-  ctx.fillStyle = '#000';
-  ctx.fillRect(meterLeft, meterCenterY - METER_HEIGHT / 2, meterWidth, METER_HEIGHT);
+  // Position the meter 50px from the bottom of the canvas
+  const meterCenterY = canvas.height - METER_BOTTOM_MARGIN;
 
- // Chaser marker (red) — visual progress relative to the runner
-const runnerProgress = Math.min(distanceTraveled / JOURNEY_DISTANCE, 1);
-const chaserVisual = getChaserVisualProgress();
-const chaserMeterProgress = chaserVisual * runnerProgress;
-const chaserMeterX = meterLeft + chaserMeterProgress * meterWidth;
-
-ctx.fillStyle = '#f44';
-ctx.fillRect(
-  chaserMeterX - METER_MARKER_WIDTH / 2,
-  meterCenterY - METER_MARKER_HEIGHT / 2,
-  METER_MARKER_WIDTH,
-  METER_MARKER_HEIGHT
-);
-
-  // Runner marker (green)
-const runnerMeterX = meterLeft + runnerProgress * meterWidth;
-ctx.fillStyle = '#4f4';
-ctx.fillRect(
-  runnerMeterX - METER_MARKER_WIDTH / 2,
-  meterCenterY - METER_MARKER_HEIGHT / 2,
-  METER_MARKER_WIDTH,
-  METER_MARKER_HEIGHT
-);
-
-  // Hatch marker (sky blue) — fixed at the end
-  const hatchMeterX = meterLeft + meterWidth;
-  ctx.fillStyle = '#4bc9f0';
-  ctx.fillRect(
-    hatchMeterX - METER_MARKER_WIDTH / 2,
-    meterCenterY - METER_MARKER_HEIGHT / 2,
-    METER_MARKER_WIDTH,
-    METER_MARKER_HEIGHT
+  // --- Black track line ---
+if (meterBarImage.complete && meterBarImage.naturalWidth > 0) {
+  ctx.drawImage(
+    meterBarImage,
+    meterLeft,
+    meterCenterY - METER_HEIGHT / 2,
+    meterWidth,
+    METER_HEIGHT
   );
+} else {
+  // Fallback while the image loads
+  ctx.fillStyle = '#000';
+  ctx.fillRect(
+    meterLeft,
+    meterCenterY - METER_HEIGHT / 2,
+    meterWidth,
+    METER_HEIGHT
+  );
+}
+
+  // --- Progress values ---
+  const runnerProgress = Math.min(distanceTraveled / JOURNEY_DISTANCE, 1);
+  const chaserVisual = getChaserVisualProgress();
+  const chaserMeterProgress = chaserVisual * runnerProgress;
+
+  // --- Icon Y (sits above the track) ---
+  const iconY = meterCenterY - ICON_SIZE / 2;
+
+  // --- Chaser icon ---
+  const chaserMeterX = meterLeft + chaserMeterProgress * meterWidth;
+  drawMeterIcon(chaserHeadImage, chaserMeterX, iconY, '#f44');
+
+  // --- Runner icon ---
+  const runnerMeterX = meterLeft + runnerProgress * meterWidth;
+  drawMeterIcon(runnerHeadImage, runnerMeterX, iconY, '#4f4');
+
+  // --- Hatch icon (fixed at the end) ---
+  const hatchMeterX = meterLeft + meterWidth;
+  drawMeterIcon(hatchHeadImage, hatchMeterX, iconY, '#4bc9f0');
 }
 
 function drawMarker(x, color) {
@@ -1382,6 +1397,17 @@ function drawMarker(x, color) {
     METER_MARKER_WIDTH,
     METER_MARKER_HEIGHT
   );
+}
+function drawMeterIcon(image, centerX, topY, fallbackColor) {
+  const x = centerX - ICON_SIZE / 2;
+
+  if (image && image.complete && image.naturalWidth > 0) {
+    ctx.drawImage(image, x, topY, ICON_SIZE, ICON_SIZE);
+  } else {
+    // Fallback: colored square while the icon loads
+    ctx.fillStyle = fallbackColor;
+    ctx.fillRect(x, topY, ICON_SIZE, ICON_SIZE);
+  }
 }
 
 function rectsOverlap(a, b) {
