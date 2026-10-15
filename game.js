@@ -2,36 +2,56 @@
 //CANVAS AND PLAY ASPECT RATIO
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-ctx.imageSmoothingEnabled = false;
+ctx.imageSmoothingEnabled = true;
 const inputEl = document.getElementById('input');  
 const PLAY_ASPECT = 16 / 9;     // width / height → portrait
 const PLAY_MAX_HEIGHT = 0.9;    // 90% of window height
 const PLAY_MAX_WIDTH = 0.6; 
 
+// -- RUNNER SPRITE FRAMES -- //
 //Running Sprite
 const runSheet = new Image();
 runSheet.src = 'sprites/runner-run.png';
 const RUN_FRAMES = 10;
 const RUN_FRAME_W = 120;
 const RUN_FRAME_H = 200;
-
 //Jumping Sprite
 const jumpSheet = new Image();
 jumpSheet.src = 'sprites/runner-jump.png';
 const JUMP_FRAMES = 10;
 const JUMP_FRAME_W = 120;
 const JUMP_FRAME_H = 200;
-
-//Text BG 
-const wordBgImage = new Image();
-wordBgImage.src = 'sprites/word-bg.png';
-
 //Sliding Sprite
 const slideSheet = new Image();
 slideSheet.src = 'sprites/runner-slide.png';
 const SLIDE_FRAMES = 14;
 const SLIDE_FRAME_W = 200;
 const SLIDE_FRAME_H = 200;
+
+
+// -- CHASER SPRITE FRAMES -- //
+const CHASER_FRAME_W = 300;
+const CHASER_FRAME_H = 300;
+
+// Frame counts per animation
+const CHASER_RUN_FRAMES = 7;
+const CHASER_JUMP_FRAMES = 10;
+const CHASER_SLIDE_FRAMES = 16;
+
+const chaserRunSheet = new Image();
+chaserRunSheet.src = 'sprites/chaser-run.png';
+
+const chaserJumpSheet = new Image();
+chaserJumpSheet.src = 'sprites/chaser-jump.png';
+
+const chaserSlideSheet = new Image();
+chaserSlideSheet.src = 'sprites/chaser-slide.png';
+
+
+//Text BG 
+const wordBgImage = new Image();
+wordBgImage.src = 'sprites/word-bg.png';
+
 
 // Journey
 const JOURNEY_DURATION = 60;                     // seconds
@@ -113,6 +133,10 @@ const WORLD_SPEED = 150;
 //DEFAULT ENTITY SIZE
 const ENTITY_WIDTH = 30;
 const ENTITY_HEIGHT = 50; 
+
+// -- Chaser Size -- 
+const CHASER_WIDTH = 50;
+const CHASER_HEIGHT = 50;
 
 //JUMP HITBOX
 const JUMP_HITBOX_HEIGHT = 15;   
@@ -301,7 +325,7 @@ class Runner extends Entity {
 
 class Chaser extends Entity {
   constructor(x, y) {
-    super(x, y, ENTITY_WIDTH, ENTITY_HEIGHT);
+    super(x, y, CHASER_WIDTH, CHASER_HEIGHT);
 
     this.jump = {
       active: false,
@@ -316,9 +340,14 @@ class Chaser extends Entity {
       active: false,
       time: 0,
       duration: SLIDE_DURATION,
-      height: ENTITY_HEIGHT,
-      width: ENTITY_WIDTH,
+      height: CHASER_HEIGHT,
+      width: CHASER_WIDTH,
       targetId: null,
+    };
+        this.anim = {
+      frame: 0,
+      timer: 0,
+      fps: 10,
     };
 
     this.staggerTime = 0;
@@ -326,6 +355,23 @@ class Chaser extends Entity {
   }
 
   update(delta, runner, obstacles, worldSpeed) {
+  // -- Chaser Sprite --
+    const activeFrameCount = this.jump.active ? CHASER_JUMP_FRAMES
+                       : this.slide.active ? CHASER_SLIDE_FRAMES
+                       : CHASER_RUN_FRAMES;
+
+    const activeFps = this.jump.active
+                  ? CHASER_JUMP_FRAMES / this.jump.duration
+                  : this.slide.active
+                    ? CHASER_SLIDE_FRAMES / this.slide.duration
+                    : this.anim.fps;
+
+    this.anim.timer += delta;
+      if (this.anim.timer >= 1 / activeFps) {
+        this.anim.timer = 0;
+        this.anim.frame = (this.anim.frame + 1) % activeFrameCount;
+      }
+
       // --- Chaser movement ---
     const runnerCX = runner.x + runner.width / 2;
     const runnerCY = runner.y + runner.height / 2;
@@ -372,11 +418,31 @@ class Chaser extends Entity {
   }
 }
   draw(ctx) {
-    ctx.fillStyle = this.staggerTime > 0 ? '#a55' : '#f44';
-    ctx.fillRect(this.x, this.y + this.jump.yOffset, this.width, this.height);
-  
-    ctx.strokeStyle = this.staggerTime > 0 ? '#622' : '#a22';
-    ctx.strokeRect(this.x, this.y + this.jump.yOffset, this.width, this.height);
+    const isJumping = this.jump.active;
+    const isSliding = this.slide.active;
+
+    const SPRITE_SCALE = 2.0;
+
+    const spriteW = this.width * SPRITE_SCALE;
+    const spriteH = this.height * SPRITE_SCALE;
+    const spriteX = this.x + (this.width - spriteW) / 2;
+    const spriteY = this.y + this.height - spriteH + this.jump.yOffset;
+
+    const activeSheet = isSliding ? chaserSlideSheet
+                      : isJumping ? chaserJumpSheet
+                      : chaserRunSheet;
+
+    if (activeSheet.complete && activeSheet.naturalWidth > 0) {
+      const sx = this.anim.frame * CHASER_FRAME_W;
+      ctx.drawImage(
+        activeSheet,
+        sx, 0, CHASER_FRAME_W, CHASER_FRAME_H,
+        spriteX, spriteY, spriteW, spriteH
+      );
+    } else {
+      ctx.fillStyle = this.staggerTime > 0 ? '#a55' : '#f44';
+      ctx.fillRect(this.x, this.y + this.jump.yOffset, this.width, this.height);
+    }
   }
 }
 
@@ -417,7 +483,7 @@ class Obstacle extends Entity {
 // };
 const runner = new Runner(0, 0);
 
-const chaser = new Chaser(-ENTITY_WIDTH / 2, 0);
+const chaser = new Chaser(-CHASER_WIDTH / 2, 0);
 
 // const chaserJump = {
 //   active: false,
@@ -567,6 +633,9 @@ function getJumpShrinkFactor() {
   const factor = 1 - (1 - JUMP_HITBOX_HEIGHT / ENTITY_HEIGHT) * phase;
 
   return factor;
+}
+function getChaserY() {
+  return getGroundY() - CHASER_HEIGHT / 2;
 }
 
 function getRunnerBounds() {
@@ -1331,8 +1400,8 @@ function resetGame() {
   chaserDistanceTraveled = 0;
   
 
-  chaser.x = -ENTITY_WIDTH / 2;
-  chaser.y = getEntityY();
+  chaser.x = -CHASER_WIDTH / 2;
+  chaser.y = getChaserY();
 
   
   runner.x = canvas.width * 0.6 - runner.width / 2;
@@ -1393,10 +1462,10 @@ function resizeCanvas() {
   }
 
   if (typeof chaser !== 'undefined') {
-    chaser.y = lineY;
+    chaser.y = getChaserY();
   }
 
-  ctx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = true;
 }
 
 document.fonts.ready.then(() => {
