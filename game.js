@@ -35,7 +35,7 @@ const CHASER_FRAME_H = 300;
 
 // Frame counts per animation
 const CHASER_RUN_FRAMES = 7;
-const CHASER_JUMP_FRAMES = 10;
+const CHASER_JUMP_FRAMES = 8;
 const CHASER_SLIDE_FRAMES = 16;
 
 const chaserRunSheet = new Image();
@@ -46,6 +46,10 @@ chaserJumpSheet.src = 'sprites/chaser-jump.png';
 
 const chaserSlideSheet = new Image();
 chaserSlideSheet.src = 'sprites/chaser-slide.png';
+
+// -- Speed Scaling 
+const CHASER_SPEED_START = 50;      // at journey start
+const CHASER_SPEED_END = 120;       // at journey end
 
 
 //Text BG 
@@ -114,6 +118,7 @@ const SLIDE_WIDTH = 50;
 const CHASER_STOP_DISTANCE = 130;      // chaser never gets closer than this to a pending obstacle
 const CHASER_JUMP_CUE = 50;           // when the obstacle is this close, jump
 const CHASER_JUMP_DURATION = 0.8;
+const CHASER_SLIDE_DURATION = 1.05;
 //Slow-motion scaling 
 const SLOWMO_FACTOR_MIN = 0.07;   // deepest slow (longest words)
 const SLOWMO_FACTOR_MAX = 0.3;    // mildest slow (shortest words)
@@ -295,7 +300,7 @@ class Runner extends Entity {
     }
   }
   draw(ctx) {
-        const isJumping = this.jump.active;
+    const isJumping = this.jump.active;
     const isSliding = this.slide.active;
 
     const SPRITE_SCALE = 2.0;
@@ -354,55 +359,70 @@ class Chaser extends Entity {
     this.blocked = false;
   }
 
-  update(delta, runner, obstacles, worldSpeed) {
+update(delta, runner, obstacles, worldSpeed) {
   // -- Chaser Sprite --
-    const activeFrameCount = this.jump.active ? CHASER_JUMP_FRAMES
-                       : this.slide.active ? CHASER_SLIDE_FRAMES
-                       : CHASER_RUN_FRAMES;
+  const activeFrameCount = this.jump.active ? CHASER_JUMP_FRAMES
+                         : this.slide.active ? CHASER_SLIDE_FRAMES
+                         : CHASER_RUN_FRAMES;
 
-    const activeFps = this.jump.active
-                  ? CHASER_JUMP_FRAMES / this.jump.duration
-                  : this.slide.active
-                    ? CHASER_SLIDE_FRAMES / this.slide.duration
-                    : this.anim.fps;
+  const activeFps = this.jump.active
+                    ? CHASER_JUMP_FRAMES / this.jump.duration
+                    : this.slide.active
+                      ? CHASER_SLIDE_FRAMES / this.slide.duration
+                      : this.anim.fps;
 
-    this.anim.timer += delta;
-      if (this.anim.timer >= 1 / activeFps) {
-        this.anim.timer = 0;
-        this.anim.frame = (this.anim.frame + 1) % activeFrameCount;
+  this.anim.timer += delta;
+  if (this.anim.timer >= 1 / activeFps) {
+    this.anim.timer = 0;
+
+    if (this.slide.active) {
+      // Hold on last frame during slide
+      if (this.anim.frame < CHASER_SLIDE_FRAMES - 1) {
+        this.anim.frame++;
       }
+    } else if (this.jump.active) {
+      // Hold on last frame during jump
+      if (this.anim.frame < CHASER_JUMP_FRAMES - 1) {
+        this.anim.frame++;
+      }
+    } else {
+      // Loop normally during running
+      this.anim.frame = (this.anim.frame + 1) % CHASER_RUN_FRAMES;
+    }
+  }
 
-      // --- Chaser movement ---
-    const runnerCX = runner.x + runner.width / 2;
-    const runnerCY = runner.y + runner.height / 2;
-    const chaserCX = this.x + this.width / 2;
-    const chaserCY = this.y + this.height / 2;
+  // --- Chaser movement ---
+  const runnerCX = runner.x + runner.width / 2;
+  const runnerCY = runner.y + runner.height / 2;
+  const chaserCX = this.x + this.width / 2;
+  const chaserCY = this.y + this.height / 2;
 
-    const dx = runnerCX - chaserCX;
-    const dy = runnerCY - chaserCY;
-    const dist = Math.hypot(dx, dy);
+  const dx = runnerCX - chaserCX;
+  const dy = runnerCY - chaserCY;
+  const dist = Math.hypot(dx, dy);
 
-    // --- Blocked check ---
-    let blockedByObstacle = false;
-    for (const o of obstacles) {
-      if (!o.chaserDelay) continue;
-      if (o.chaserJumped) continue;
+  // --- Blocked check ---
+  let blockedByObstacle = false;
+  for (const o of obstacles) {
+    if (!o.chaserDelay) continue;
+    if (o.chaserJumped || o.chaserSlid) continue;   // ← skip both
 
-      const obstacleCenterX = o.x + o.width / 2;
-      const gap = obstacleCenterX - chaserCX;
+    const obstacleCenterX = o.x + o.width / 2;
+    const gap = obstacleCenterX - chaserCX;
 
-      if (gap > 0 && gap < CHASER_STOP_DISTANCE) {
-        if (!this.jump.targetId || this.jump.targetId !== o.id) {
-          blockedByObstacle = true;
-          break;
-        }
+    if (gap > 0 && gap < CHASER_STOP_DISTANCE) {
+      const isTargeted = (this.jump.targetId === o.id) || (this.slide.targetId === o.id);
+      if (!isTargeted) {
+        blockedByObstacle = true;
+        break;
       }
     }
+  }
 
   this.blocked = blockedByObstacle;
 
   // --- Speed ---
-  let chaserSpeed = 45;
+  let chaserSpeed = getChaserSpeed();
   if (this.staggerTime > 0) {
     chaserSpeed *= CHASER_STAGGER_FACTOR;
   }
@@ -422,24 +442,26 @@ class Chaser extends Entity {
     const isSliding = this.slide.active;
 
     const SPRITE_SCALE = 2.0;
+    const SLIDE_STRETCH_X = 1.2;
+    const SLIDE_STRETCH_Y = 1;
 
-    const spriteW = this.width * SPRITE_SCALE;
-    const spriteH = this.height * SPRITE_SCALE;
+    const spriteW = this.width * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
+    const spriteH = this.height * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
     const spriteX = this.x + (this.width - spriteW) / 2;
     const spriteY = this.y + this.height - spriteH + this.jump.yOffset;
 
-    const activeSheet = isSliding ? chaserSlideSheet
-                      : isJumping ? chaserJumpSheet
-                      : chaserRunSheet;
+    const activeSheet = isSliding ? chaserSlideSheet : isJumping ? chaserJumpSheet : chaserRunSheet;
 
     if (activeSheet.complete && activeSheet.naturalWidth > 0) {
       const sx = this.anim.frame * CHASER_FRAME_W;
+
       ctx.drawImage(
         activeSheet,
         sx, 0, CHASER_FRAME_W, CHASER_FRAME_H,
         spriteX, spriteY, spriteW, spriteH
       );
     } else {
+      // Fallback rectangle while loading
       ctx.fillStyle = this.staggerTime > 0 ? '#a55' : '#f44';
       ctx.fillRect(this.x, this.y + this.jump.yOffset, this.width, this.height);
     }
@@ -690,7 +712,10 @@ function getRunnerBounds() {
   };
 }
 
-
+function getChaserSpeed() {
+  const progress = Math.min(distanceTraveled / JOURNEY_DISTANCE, 1);
+  return CHASER_SPEED_START + (CHASER_SPEED_END - CHASER_SPEED_START) * progress;
+}
 
 
 function getChaserBounds() {
@@ -762,6 +787,35 @@ function getSlowFactorForWord(word) {
   );
   return SLOWMO_FACTOR_MAX + (SLOWMO_FACTOR_MIN - SLOWMO_FACTOR_MAX) * t;
 }
+function getChaserSlideDuration() {
+  if (obstacles.length === 0) return SLIDE_DURATION;
+
+  const chaserCenterX = chaser.x + chaser.width / 2;
+  let minDist = Infinity;
+  let closest = null;
+
+  for (const o of obstacles) {
+    if (!o.chaserDelay) continue;
+    if (o.chaserJumped || o.chaserSlid) continue;
+    if (o.type !== 'slide') continue;
+
+    const obstacleCenterX = o.x + o.width / 2;
+    const d = obstacleCenterX - chaserCenterX;
+    if (d > 0 && d < minDist) {
+      minDist = d;
+      closest = o;
+    }
+  }
+
+  if (!closest) return SLIDE_DURATION;
+
+  const closingSpeed = getWorldSpeed() + getChaserSpeed();
+  const timeToReach = minDist / closingSpeed;
+  const timeToPass = (closest.width + chaser.width) / closingSpeed;
+  const duration = timeToReach + timeToPass;
+
+  return Math.max(1.5, Math.min(duration, 2.5));
+}
 
 function getSlideDurationForDistance() {
   if (obstacles.length === 0) return SLIDE_DURATION;
@@ -830,15 +884,20 @@ function checkChaserAction() {
       if (o.type === 'slide') {
         chaser.slide.active = true;
         chaser.slide.time = 0;
-        chaser.slide.duration = CHASER_JUMP_DURATION;
+        chaser.slide.duration = getChaserSlideDuration();
         chaser.slide.targetId = o.id;
         o.chaserSlid = true;
+
+        chaser.anim.frame = 0;
+        chaser.anim.timer = 0;
       } else {
         chaser.jump.active = true;
         chaser.jump.time = 0;
         chaser.jump.duration = CHASER_JUMP_DURATION;
         chaser.jump.targetId = o.id;
         o.chaserJumped = true;
+        chaser.anim.frame = 0;
+        chaser.anim.timer = 0;
       }
       return;
     }
@@ -984,7 +1043,13 @@ function updateJump(jump, delta) {
     jump.active = false;
     jump.time = 0;
     jump.yOffset = 0;
-    if (jump === chaser.jump) jump.targetId = null; 
+    if (jump === chaser.jump) {
+        chaser.anim.frame = 0;
+        chaser.anim.timer = 0;
+        jump.targetId = null; 
+    }
+      
+      
 
     if (jump === runner.jump) {
       runner.anim.frame = runner.anim.frame % RUN_FRAMES;
@@ -1008,7 +1073,11 @@ function updateSlide(slide, entity, delta) {
     slide.time = 0;
     slide.height = entity.height;
     slide.width = entity.width;
-    if (slide === chaser.slide) slide.targetId = null;
+    if (slide === chaser.slide){
+      chaser.anim.frame = 0;
+      chaser.anim.timer = 0;
+      slide.targetId = null;
+    }
 
     if (slide === runner.slide) {
       runner.anim.frame = runner.anim.frame % RUN_FRAMES;
