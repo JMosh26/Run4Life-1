@@ -53,7 +53,7 @@ runnerSlideSheets[2].src = 'sprites/runner-slide-4.png'; // or runner-slide-4.pn
 const MAX_LIVES = 4;
 let lives = MAX_LIVES;
 let hitCooldownTime = 0;
-const HIT_COOLDOWN = 1.0; // 1 second grace period
+const HIT_COOLDOWN = 2.0; // 1 second grace period
 
 /* Type Constraints */
 const TYPING_RANGE_MAX = 600;    // obstacle must be within 600px to type
@@ -1107,11 +1107,6 @@ function checkTypedMatch() {
 
     loseLife();
 
-    // Wrong letter feedback
-    wrongFlashTime = WRONG_FLASH_DURATION;
-    shakeTime = SHAKE_DURATION;
-    
-
     return;
   }
 
@@ -1441,6 +1436,31 @@ obstacles.forEach(o => o.draw(ctx));
   ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
+    // --- Hit Cooldown Visual ---
+  if (hitCooldownTime > 0) {
+    // 1. Draw a glowing outline around the runner
+    const bounds = getRunnerBounds();
+    const pulse = Math.sin(hitCooldownTime * 30) * 0.5 + 0.5; // Flickers
+    
+    ctx.strokeStyle = `rgba(255, 255, 255, ${pulse})`; // White flash
+    ctx.lineWidth = 2;
+    ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.width + 8, bounds.height + 8);
+    
+    // 2. Optional: Draw a cooldown bar above the runner's head
+    const barWidth = 40;
+    const barHeight = 4;
+    const barX = runner.x + (runner.width - barWidth) / 2;
+    const barY = bounds.y - 20;
+
+    // Background of the bar
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+
+    // Fill of the bar (shrinks as cooldown ticks down)
+    const fillWidth = barWidth * (hitCooldownTime / HIT_COOLDOWN);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(barX, barY, fillWidth, barHeight);
+  }
 
   ctx.restore(); 
 }
@@ -1586,13 +1606,19 @@ function spawnObstacle() {
     }
 }
 function resetGame() {
+
   lives = MAX_LIVES;
+  hitCooldownTime = 0;
   obstacles.length = 0;
   targetedObstacle = null;
   currentTyped = '';
   let runnerStartX = 0;
   distanceTraveled = 0;
   chaserDistanceTraveled = 0;
+
+  /* Reset Visual Feedback */
+  wrongFlashTime = 0;
+  shakeTime = 0;
   
 
   chaser.x = -CHASER_WIDTH / 2;
