@@ -10,23 +10,50 @@ const PLAY_MAX_WIDTH = 0.6;
 
 // -- RUNNER SPRITE FRAMES -- //
 //Running Sprite
-const runSheet = new Image();
-runSheet.src = 'sprites/runner-run.png';
 const RUN_FRAMES = 10;
 const RUN_FRAME_W = 120;
 const RUN_FRAME_H = 200;
-//Jumping Sprite
-const jumpSheet = new Image();
-jumpSheet.src = 'sprites/runner-jump.png';
 const JUMP_FRAMES = 10;
 const JUMP_FRAME_W = 120;
 const JUMP_FRAME_H = 200;
-//Sliding Sprite
-const slideSheet = new Image();
-slideSheet.src = 'sprites/runner-slide.png';
 const SLIDE_FRAMES = 14;
 const SLIDE_FRAME_W = 200;
 const SLIDE_FRAME_H = 200;
+
+const runnerRunSheets = {};
+const runnerJumpSheets = {};
+const runnerSlideSheets = {};
+
+// --- Load State 4 (Normal) ---
+runnerRunSheets[4] = new Image();
+runnerRunSheets[4].src = 'sprites/runner-run-4.png';
+runnerJumpSheets[4] = new Image();
+runnerJumpSheets[4].src = 'sprites/runner-jump-4.png';
+runnerSlideSheets[4] = new Image();
+runnerSlideSheets[4].src = 'sprites/runner-slide-4.png';
+
+// --- Load State 3 (Minor Injury) ---
+runnerRunSheets[3] = new Image();
+runnerRunSheets[3].src = 'sprites/runner-run-3.png';
+// Assuming you also have jump/slide for state 3, otherwise point them to 4
+runnerJumpSheets[3] = new Image();
+runnerJumpSheets[3].src = 'sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerSlideSheets[3] = new Image();
+runnerSlideSheets[3].src = 'sprites/runner-slide-4.png'; // or runner-slide-4.png
+
+// --- Load State 2 (Injured) ---
+runnerRunSheets[2] = new Image();
+runnerRunSheets[2].src = 'sprites/runner-run-2.png';
+runnerJumpSheets[2] = new Image();
+runnerJumpSheets[2].src = 'sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerSlideSheets[2] = new Image();
+runnerSlideSheets[2].src = 'sprites/runner-slide-4.png'; // or runner-slide-4.png
+
+/* Player Health System */
+const MAX_LIVES = 4;
+let lives = MAX_LIVES;
+let hitCooldownTime = 0;
+const HIT_COOLDOWN = 1.0; // 1 second grace period
 
 /* Type Constraints */
 const TYPING_RANGE_MAX = 600;    // obstacle must be within 600px to type
@@ -332,13 +359,40 @@ class Runner extends Entity {
     const spriteX = this.x + (this.width - spriteW) / 2;
     const spriteY = this.y + this.height - spriteH + this.jump.yOffset;
 
-    const activeSheet = isSliding ? slideSheet : isJumping ? jumpSheet : runSheet;
-    const activeFrameW = isSliding ? SLIDE_FRAME_W : isJumping ? JUMP_FRAME_W : RUN_FRAME_W;
-    const activeFrameH = isSliding ? SLIDE_FRAME_H : isJumping ? JUMP_FRAME_H : RUN_FRAME_H;
+    const currentLives = Math.max(1, lives); // Prevents crashing if lives is 0
+      
+    const runSheet = runnerRunSheets[currentLives] || runnerRunSheets[4];
+    const jumpSheet = runnerJumpSheets[currentLives] || runnerJumpSheets[4];
+    const slideSheet = runnerSlideSheets[currentLives] || runnerSlideSheets[4];
 
-    if (activeSheet.complete && activeSheet.naturalWidth > 0) {
+    let activeSheet;
+    if (isSliding) {
+      activeSheet = slideSheet;
+    } else if (isJumping) {
+      activeSheet = jumpSheet;
+    } else {
+      activeSheet = runSheet;
+    }
+
+    if (activeSheet && activeSheet.complete && activeSheet.naturalWidth > 0) {
+      
+      // 2. Figure out which frame to draw based on the action
+      let activeFrameW, activeFrameH;
+      if (isSliding) {
+        activeFrameW = SLIDE_FRAME_W;
+        activeFrameH = SLIDE_FRAME_H;
+      } else if (isJumping) {
+        activeFrameW = JUMP_FRAME_W;
+        activeFrameH = JUMP_FRAME_H;
+      } else {
+        activeFrameW = RUN_FRAME_W;
+        activeFrameH = RUN_FRAME_H;
+      }
+
+      // 3. Calculate the source X in the sprite sheet
       const sx = this.anim.frame * activeFrameW;
 
+      // 4. Draw it!
       ctx.drawImage(
         activeSheet,
         sx, 0, activeFrameW, activeFrameH,
@@ -640,9 +694,16 @@ function getGroundY() {
 }
 
 function getWorldSpeed() {
-  if (distanceTraveled >= WORD_TIER_3_DISTANCE) return WORLD_SPEED * WORLD_SPEED_TIER_3;
-  if (distanceTraveled >= WORD_TIER_2_DISTANCE) return WORLD_SPEED * WORLD_SPEED_TIER_2;
-  return WORLD_SPEED;
+  let speed = WORLD_SPEED;
+  
+  // ... existing tier logic ...
+  if (distanceTraveled >= WORD_TIER_3_DISTANCE) speed = WORLD_SPEED * WORLD_SPEED_TIER_3;
+  else if (distanceTraveled >= WORD_TIER_2_DISTANCE) speed = WORLD_SPEED * WORLD_SPEED_TIER_2;
+
+  // Apply health penalty
+  speed *= getSpeedMultiplier(); 
+  
+  return speed;
 }
 
 function getSpawnInterval() {
@@ -655,7 +716,32 @@ function getSpawnInterval() {
 function getHatchWorldX() {
   return runnerStartX + JOURNEY_DISTANCE;
 }
+function getSpeedMultiplier() {
+  if (lives >= 4) return 1.00; // Normal
+  if (lives >= 3) return 0.90; // Minor (10% slower)
+  if (lives >= 2) return 0.70; // Injured (30% slower)
+  if (lives >= 1) return 0.40; // Critical (60% slower)
+  return 0;
+}
+function loseLife() {
+  if (hitCooldownTime > 0) return; 
+  if (lives <= 0) return;
 
+  lives -= 1;
+  hitCooldownTime = HIT_COOLDOWN;
+
+  // Visual feedback (reusing your existing flash/shake)
+  wrongFlashTime = WRONG_FLASH_DURATION;
+  shakeTime = SHAKE_DURATION;
+  
+  // Reset animation so the new sprite starts cleanly
+  runner.anim.frame = 0;
+  runner.anim.timer = 0;
+
+  if (lives <= 0) {
+    gameOver('You took too much damage!');
+  }
+}
 
 
 function gameLoop(timestamp) {
@@ -1019,9 +1105,13 @@ function checkTypedMatch() {
   if (!word.startsWith(currentTyped)) {
     currentTyped = currentTyped.slice(0, -1);
 
+    loseLife();
+
     // Wrong letter feedback
     wrongFlashTime = WRONG_FLASH_DURATION;
     shakeTime = SHAKE_DURATION;
+    
+
     return;
   }
 
@@ -1167,6 +1257,7 @@ function update(delta) {
   //Countdown for wrong letter
   if (wrongFlashTime > 0) wrongFlashTime -= delta;
   if (shakeTime > 0) shakeTime -= delta;
+  if (hitCooldownTime > 0) hitCooldownTime -= delta;
 
   // -- Runner Update -- //
   runner.update(delta);
@@ -1224,20 +1315,21 @@ function update(delta) {
   const runnerBounds = getRunnerBounds();
   for (const o of obstacles) {
     if (rectsOverlap(o, runnerBounds)) {
-    gameOver('An obstacle hit you!');
-    return;
+    loseLife();
+    o.hitRunner = true; // Mark so it only hits once
     }
   }
 
   // --- Chaser catches runner ---
   const chaserBounds = getChaserBounds();
   if (rectsOverlap(runnerBounds, chaserBounds)) {
+    lives = 0; // Wipe lives
     gameOver('The chaser caught you!');
   }
 
-  if (rectsOverlap(runner, chaser)) {
-    gameOver('The chaser caught you!');
-  }
+  // if (rectsOverlap(runner, chaser)) {
+  //   gameOver('The chaser caught you!');
+  // }
 }
 
 function gameOver(reason) {
@@ -1494,6 +1586,7 @@ function spawnObstacle() {
     }
 }
 function resetGame() {
+  lives = MAX_LIVES;
   obstacles.length = 0;
   targetedObstacle = null;
   currentTyped = '';
