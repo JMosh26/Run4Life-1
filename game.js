@@ -26,28 +26,28 @@ const runnerSlideSheets = {};
 
 // --- Load State 4 (Normal) ---
 runnerRunSheets[4] = new Image();
-runnerRunSheets[4].src = 'sprites/runner-run-4.png';
+runnerRunSheets[4].src = 'sprites/Character-Sprites/runner-run-4.png';
 runnerJumpSheets[4] = new Image();
-runnerJumpSheets[4].src = 'sprites/runner-jump-4.png';
+runnerJumpSheets[4].src = 'sprites/Character-Sprites/runner-jump-4.png';
 runnerSlideSheets[4] = new Image();
-runnerSlideSheets[4].src = 'sprites/runner-slide-4.png';
+runnerSlideSheets[4].src = 'sprites/Character-Sprites/runner-slide-4.png';
 
 // --- Load State 3 (Minor Injury) ---
 runnerRunSheets[3] = new Image();
-runnerRunSheets[3].src = 'sprites/runner-run-3.png';
+runnerRunSheets[3].src = 'sprites/Character-Sprites/runner-run-3.png';
 // Assuming you also have jump/slide for state 3, otherwise point them to 4
 runnerJumpSheets[3] = new Image();
-runnerJumpSheets[3].src = 'sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerJumpSheets[3].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or runner-jump-4.png
 runnerSlideSheets[3] = new Image();
-runnerSlideSheets[3].src = 'sprites/runner-slide-4.png'; // or runner-slide-4.png
+runnerSlideSheets[3].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
 
 // --- Load State 2 (Injured) ---
 runnerRunSheets[2] = new Image();
-runnerRunSheets[2].src = 'sprites/runner-run-2.png';
+runnerRunSheets[2].src = 'sprites/Character-Sprites/runner-run-2.png';
 runnerJumpSheets[2] = new Image();
-runnerJumpSheets[2].src = 'sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerJumpSheets[2].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or runner-jump-4.png
 runnerSlideSheets[2] = new Image();
-runnerSlideSheets[2].src = 'sprites/runner-slide-4.png'; // or runner-slide-4.png
+runnerSlideSheets[2].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
 
 /* Player Health System */
 const MAX_LIVES = 4;
@@ -61,16 +61,16 @@ const TYPING_RANGE_MIN = -50;    // how far past the runner the obstacle can be
 
 // -- Meter and Head Icon Images -- //
 const runnerHeadImage = new Image();
-runnerHeadImage.src = 'sprites/meter-head-runner.png';
+runnerHeadImage.src = 'sprites/Meter-Sprites/meter-head-runner.png';
 
 const chaserHeadImage = new Image();
-chaserHeadImage.src = 'sprites/meter-head-chaser.png';
+chaserHeadImage.src = 'sprites/Meter-Sprites/meter-head-chaser.png';
 
 const hatchHeadImage = new Image();
-hatchHeadImage.src = 'sprites/meter-head-hatch.png';
+hatchHeadImage.src = 'sprites/Meter-Sprites/meter-head-hatch.png';
 
 const meterBarImage = new Image();
-meterBarImage.src = 'sprites/meter-bar.png';
+meterBarImage.src = 'sprites/Meter-Sprites/meter-bar.png';
 
 const METER_TRACK_START_OFFSET = 40;   // how many pixels to push icons right
 const METER_TRACK_END_OFFSET = 40;     // how many pixels to pull the end left
@@ -85,13 +85,13 @@ const CHASER_JUMP_FRAMES = 8;
 const CHASER_SLIDE_FRAMES = 16;
 
 const chaserRunSheet = new Image();
-chaserRunSheet.src = 'sprites/chaser-run.png';
+chaserRunSheet.src = 'sprites/Character-Sprites/chaser-run.png';
 
 const chaserJumpSheet = new Image();
-chaserJumpSheet.src = 'sprites/chaser-jump.png';
+chaserJumpSheet.src = 'sprites/Character-Sprites/chaser-jump.png';
 
 const chaserSlideSheet = new Image();
-chaserSlideSheet.src = 'sprites/chaser-slide.png';
+chaserSlideSheet.src = 'sprites/Character-Sprites/chaser-slide.png';
 
 // -- Speed Scaling 
 const CHASER_SPEED_START = 50;      // at journey start
@@ -100,7 +100,7 @@ const CHASER_SPEED_END = 120;       // at journey end
 
 //Text BG 
 const wordBgImage = new Image();
-wordBgImage.src = 'sprites/word-bg.png';
+wordBgImage.src = 'sprites/Others/word-bg.png';
 
 
 // Journey
@@ -124,19 +124,19 @@ const OBSTACLE_VARIANTS = [
     name: 'barrier',
     width: 80,
     height: 60,
-    sprites: ['sprites/obstacle-1.png'],
+    sprites: ['sprites/Obstacles/obstacle-1.png'],
   },
   {
     name: 'stop-sign',
     width: 50,
     height: 50,
-    sprites: ['sprites/obstacle-2.png'],
+    sprites: ['sprites/Obstacles/obstacle-2.png'],
   },
   {
     name: 'cone',
     width: 40,
     height: 40,
-    sprites: ['sprites/obstacle-3.png'],
+    sprites: ['sprites/Obstacles/obstacle-3.png'],
   },
 ];
 
