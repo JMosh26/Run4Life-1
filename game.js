@@ -510,7 +510,40 @@ class Obstacle extends Entity {
   }
 
   draw(ctx) {
-    // Moved here in Step 4c
+    if (this.type === 'slide') {
+      // Floating block placeholder
+      ctx.fillStyle = this.cleared ? '#7a3d00' : '#f80';
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+
+      // Support legs
+      const legTop = this.y + this.height;
+      const legBottom = getFloorTop();
+      ctx.fillStyle = '#000';
+
+      ctx.fillRect(this.x + 5, legTop, 6, legBottom - legTop);
+      ctx.fillRect(this.x + this.width - 11, legTop, 6, legBottom - legTop);
+      ctx.fillRect(this.x + 5, legTop + (legBottom - legTop) / 2, this.width - 10, 4);
+
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(this.x, this.y, this.width, this.height);
+    } else {
+      const variant = OBSTACLE_VARIANTS[this.variantIndex];
+      const sprite = variant.images[0];
+
+      // Sprite (behind)
+      if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+        ctx.drawImage(sprite, this.x, this.y, this.width, this.height);
+      }
+
+      // Placeholder rectangle (uncomment if you want the tint back)
+      // ctx.globalAlpha = 0.4;
+      // ctx.fillStyle = this.cleared ? '#7a3d00' : '#f80';
+      // ctx.fillRect(this.x, this.y, this.width, this.height);
+      // ctx.globalAlpha = 1.0;
+    }
+
+    drawObstacleWord(this);
   }
 }
 // const runner = {
@@ -1141,7 +1174,7 @@ function update(delta) {
 
   // --- Move obstacles ---
 
-  obstacles.forEach(o => o.x -= worldSpeed * delta);
+  obstacles.forEach(o => o.update(delta, worldSpeed));
 
   // --- Remove off-screen obstacles ---
   for (let i = obstacles.length - 1; i >= 0; i--) {
@@ -1277,47 +1310,7 @@ const chaserY = chaser.y + (chaser.height - chaserH);
 
 chaser.draw(ctx);
 
-  
-obstacles.forEach(o => {
-  if (o.type === 'slide') {
-    // Floating block placeholder
-    ctx.fillStyle = o.cleared ? '#7a3d00' : '#f80';
-    ctx.fillRect(o.x, o.y, o.width, o.height);
-
-    // Support legs (simple, dark)
-    const legTop = o.y + o.height;
-    const legBottom = getFloorTop();
-    ctx.fillStyle = '#000';
-
-      // Two legs
-    ctx.fillRect(o.x + 5, legTop, 6, legBottom - legTop);
-    ctx.fillRect(o.x + o.width - 11, legTop, 6, legBottom - legTop);
-
-      // Cross-brace between legs
-    ctx.fillRect(o.x + 5, legTop + (legBottom - legTop) / 2, o.width - 10, 4);
-
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(o.x, o.y, o.width, o.height);
-  } else {
-    const variant = OBSTACLE_VARIANTS[o.variantIndex];
-    const sprite = variant.images[0];
-
-    // 1. Sprite (behind)
-    if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-      ctx.drawImage(sprite, o.x, o.y, o.width, o.height);
-    }
-
-    // 2. Placeholder rectangle (front, semi-transparent)
-    // ctx.globalAlpha = 0.4;
-    // ctx.fillStyle = o.cleared ? '#7a3d00' : '#f80';
-    // ctx.fillRect(o.x, o.y, o.width, o.height);
-    // ctx.globalAlpha = 1.0;
-  }
-
-  drawObstacleWord(o);
-});
-
+obstacles.forEach(o => o.draw(ctx));
 
   scorePopups.forEach(p => {
   const alpha = p.life / p.maxLife;
@@ -1437,7 +1430,6 @@ function getChaserVisualProgress() {
 }
 
 function spawnObstacle() {
-  console.log('spawnObstacle called');
   const pool = getCurrentWordPool();
   const word = pool[Math.floor(Math.random() * pool.length)];
 
@@ -1464,7 +1456,6 @@ function spawnObstacle() {
     );
     obstacle.id = nextObstacleId++;
     obstacles.push(obstacle);
-    console.log('Pushed obstacle. Total:', obstacles.length);
   }else {
     const variantIndex = Math.floor(Math.random() * OBSTACLE_VARIANTS.length);
     const variant = OBSTACLE_VARIANTS[variantIndex];
