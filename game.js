@@ -1437,6 +1437,7 @@ function getChaserVisualProgress() {
 }
 
 function spawnObstacle() {
+  console.log('spawnObstacle called');
   const pool = getCurrentWordPool();
   const word = pool[Math.floor(Math.random() * pool.length)];
 
@@ -1452,45 +1453,38 @@ function spawnObstacle() {
     const obstacleW = SLIDE_OBSTACLE_WIDTH;
     const blockBottom = floorTop - SLIDE_OBSTACLE_GAP;
 
-    obstacles.push({
-      id: nextObstacleId++,
-      x: canvas.width + 30,
-      y: blockBottom - obstacleH,   // top of the block
-      width: obstacleW,
-      height: obstacleH,
-      word: word,
-      type: 'slide',
-      cleared: false,
-      awaitingJump: false,
-      awaitingSlide: false,
-      chaserDelay: false,
-      chaserJumped: false,
-      chaserSlid: false,
-    });
-  } else {
+    const obstacle = new Obstacle(
+      canvas.width + 30,
+      blockBottom - obstacleH,
+      obstacleW,
+      obstacleH,
+      word,
+      'slide',
+      0   // no slide variant yet
+    );
+    obstacle.id = nextObstacleId++;
+    obstacles.push(obstacle);
+    console.log('Pushed obstacle. Total:', obstacles.length);
+  }else {
     const variantIndex = Math.floor(Math.random() * OBSTACLE_VARIANTS.length);
     const variant = OBSTACLE_VARIANTS[variantIndex];
 
     const obstacleW = variant.width;
     const obstacleH = variant.height;
 
-    obstacles.push({
-      id: nextObstacleId++,
-      x: canvas.width + 30,
-      y: getFloorTop() - obstacleH,
-      width: obstacleW,
-      height: obstacleH,
-      word: word,
-      type: 'jump',
-      variantIndex: variantIndex,   // ← new
-      cleared: false,
-      awaitingJump: false,
-      awaitingSlide: false,
-      chaserDelay: false,
-      chaserJumped: false,
-      chaserSlid: false,
-    });
-  }
+    const obstacle = new Obstacle(
+      canvas.width + 30,
+      getFloorTop() - obstacleH,
+      obstacleW,
+      obstacleH,
+      word,
+      'jump',
+      variantIndex
+    );
+    obstacle.id = nextObstacleId++;
+    obstacles.push(obstacle);
+    console.log('Pushed obstacle. Total:', obstacles.length);
+    }
 }
 function resetGame() {
   obstacles.length = 0;
