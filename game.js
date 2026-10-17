@@ -40,6 +40,10 @@ hatchHeadImage.src = 'sprites/meter-head-hatch.png';
 
 const meterBarImage = new Image();
 meterBarImage.src = 'sprites/meter-bar.png';
+
+const METER_TRACK_START_OFFSET = 40;   // how many pixels to push icons right
+const METER_TRACK_END_OFFSET = 40;     // how many pixels to pull the end left
+
 // -- CHASER SPRITE FRAMES -- //
 const CHASER_FRAME_W = 300;
 const CHASER_FRAME_H = 300;
@@ -1372,19 +1376,21 @@ if (meterBarImage.complete && meterBarImage.naturalWidth > 0) {
   const chaserVisual = getChaserVisualProgress();
   const chaserMeterProgress = chaserVisual * runnerProgress;
 
-  // --- Icon Y (sits above the track) ---
+  // --- Icon Y (sits center of the track) ---
   const iconY = meterCenterY - ICON_SIZE / 2;
+  const trackLeft = meterLeft + METER_TRACK_START_OFFSET;
+  const trackWidth = meterWidth - METER_TRACK_START_OFFSET - METER_TRACK_END_OFFSET;
 
   // --- Chaser icon ---
-  const chaserMeterX = meterLeft + chaserMeterProgress * meterWidth;
+  const chaserMeterX = trackLeft + chaserMeterProgress * trackWidth;
   drawMeterIcon(chaserHeadImage, chaserMeterX, iconY, '#f44');
 
   // --- Runner icon ---
-  const runnerMeterX = meterLeft + runnerProgress * meterWidth;
+  const runnerMeterX = trackLeft + runnerProgress * trackWidth;
   drawMeterIcon(runnerHeadImage, runnerMeterX, iconY, '#4f4');
 
   // --- Hatch icon (fixed at the end) ---
-  const hatchMeterX = meterLeft + meterWidth;
+  const hatchMeterX = trackLeft + trackWidth;
   drawMeterIcon(hatchHeadImage, hatchMeterX, iconY, '#4bc9f0');
 }
 
