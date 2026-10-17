@@ -28,6 +28,10 @@ const SLIDE_FRAMES = 14;
 const SLIDE_FRAME_W = 200;
 const SLIDE_FRAME_H = 200;
 
+/* Type Constraints */
+const TYPING_RANGE_MAX = 600;    // obstacle must be within 600px to type
+const TYPING_RANGE_MIN = -50;    // how far past the runner the obstacle can be
+
 // -- Meter and Head Icon Images -- //
 const runnerHeadImage = new Image();
 runnerHeadImage.src = 'sprites/meter-head-runner.png';
@@ -800,14 +804,26 @@ function pickTargetObstacle() {
     return;
   }
 
-  // Find the closest obstacle that hasn't been cleared yet
+  const runnerCX = runner.x + runner.width / 2;
   let closest = null;
+  let closestDist = Infinity;
+
   for (const o of obstacles) {
     if (o.cleared) continue;
-    if (!closest || o.x < closest.x) closest = o;
+
+    const obstacleCX = o.x + o.width / 2;
+    const dist = obstacleCX - runnerCX;
+
+    // Only target if it's within the typing window
+    if (dist > TYPING_RANGE_MIN && dist < TYPING_RANGE_MAX) {
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = o;
+      }
+    }
   }
 
-  // No uncleared obstacles → clear target
+  // If no obstacle is in range, clear the target
   if (!closest) {
     targetedObstacle = null;
     currentTyped = '';
