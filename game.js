@@ -49,6 +49,14 @@ runnerJumpSheets[2].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or r
 runnerSlideSheets[2] = new Image();
 runnerSlideSheets[2].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
 
+// --- Load State 2 (Injured) ---
+runnerRunSheets[1] = new Image();
+runnerRunSheets[1].src = 'sprites/Character-Sprites/runner-run-1.png';
+runnerJumpSheets[1] = new Image();
+runnerJumpSheets[1].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerSlideSheets[1] = new Image();
+runnerSlideSheets[1].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
+
 /* Player Health System */
 const MAX_LIVES = 4;
 let lives = MAX_LIVES;
@@ -60,8 +68,13 @@ const TYPING_RANGE_MAX = 600;    // obstacle must be within 600px to type
 const TYPING_RANGE_MIN = -50;    // how far past the runner the obstacle can be
 
 // -- Meter and Head Icon Images -- //
-const runnerHeadImage = new Image();
-runnerHeadImage.src = 'sprites/Meter-Sprites/meter-head-runner.png';
+
+const runnerHeadSheets = {};
+for(let i = 1; i <= 4; i++){
+  runnerHeadSheets[i] = new Image();
+  runnerHeadSheets[i].src = `sprites/Meter-Sprites/meter-head-runner-${i}.png`;
+}
+
 
 const chaserHeadImage = new Image();
 chaserHeadImage.src = 'sprites/Meter-Sprites/meter-head-chaser.png';
@@ -719,8 +732,8 @@ function getHatchWorldX() {
 function getSpeedMultiplier() {
   if (lives >= 4) return 1.00; // Normal
   if (lives >= 3) return 0.90; // Minor (10% slower)
-  if (lives >= 2) return 0.70; // Injured (30% slower)
-  if (lives >= 1) return 0.40; // Critical (60% slower)
+  if (lives >= 2) return 0.80; // Injured (20% slower)
+  if (lives >= 1) return 0.70; // Critical (30% slower)
   return 0;
 }
 function loseLife() {
@@ -1507,8 +1520,13 @@ if (meterBarImage.complete && meterBarImage.naturalWidth > 0) {
   drawMeterIcon(chaserHeadImage, chaserMeterX, iconY, '#f44');
 
   // --- Runner icon ---
-  const runnerMeterX = trackLeft + runnerProgress * trackWidth;
-  drawMeterIcon(runnerHeadImage, runnerMeterX, iconY, '#4f4');
+ const runnerMeterX = trackLeft + runnerProgress * trackWidth;
+
+  // Figure out which head icon to use (clamp to 1-4 to prevent errors)
+  const currentLives = Math.max(1, lives);
+  const currentHeadIcon = runnerHeadSheets[currentLives] || runnerHeadSheets[4];
+
+  drawMeterIcon(currentHeadIcon, runnerMeterX, iconY, '#4f4');
 
   // --- Hatch icon (fixed at the end) ---
   const hatchMeterX = trackLeft + trackWidth;

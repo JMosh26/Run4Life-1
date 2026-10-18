@@ -20,8 +20,8 @@ You no longer die instantly from wrong letters or obstacle hits. Instead, you ha
 |-------|-------|----------------|--------------|
 | Normal | 4 | 100% Speed | `runner-run-4` |
 | Minor Injury | 3 | 10% Slower | `runner-run-3` |
-| Injured | 2 | 30% Slower | `runner-run-2` |
-| Critical | 1 | 60% Slower | `runner-run-1` |
+| Injured | 2 | 20% Slower | `runner-run-2` |
+| Critical | 1 | 50% Slower | `runner-run-1` |
 | Dead | 0 | Game Over | N/A |
 
 - **Damage Cooldown:** After taking a hit, there is a 1-second invincibility window (indicated by a white flashing box) to prevent rapid life loss.
