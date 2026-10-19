@@ -4,9 +4,19 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = true;
 const inputEl = document.getElementById('input');  
-const PLAY_ASPECT = 16 / 9;     // width / height → portrait
-const PLAY_MAX_HEIGHT = 0.9;    // 90% of window height
-const PLAY_MAX_WIDTH = 0.6; 
+const mainMenuEl = document.getElementById('mainMenu');
+const playButton = document.getElementById('playButton');
+const menuMusicButton = document.getElementById('menuMusic');
+const gameOverEl = document.getElementById('gameOver');
+const gameOverReasonEl = document.getElementById('gameOverReason');
+const returnToMenuButton = document.getElementById('returnToMenu');
+const tryAgainButton = document.getElementById('tryAgain');
+let gameStarted = false;
+let menuAudioContext = null;
+let menuMelody = null;
+let menuBass = null;
+let menuMusicTimer = null;
+let menuMusicStep = 0;
 
 // -- RUNNER SPRITE FRAMES -- //
 //Running Sprite
@@ -97,7 +107,7 @@ const CHASER_FRAME_W = 300;
 const CHASER_FRAME_H = 300;
 
 // Frame counts per animation
-const CHASER_RUN_FRAMES = 7;
+const CHASER_RUN_FRAMES = 9;
 const CHASER_JUMP_FRAMES = 8;
 const CHASER_SLIDE_FRAMES = 16;
 
@@ -261,6 +271,7 @@ let lastHudUpdate = 0;      // for throttling HUD redraws
 //Distance Travelled
 let distanceTraveled = 0;
 let chaserDistanceTraveled = 0;
+let runnerStartX = 0;
 //Hatch Position
 let hatchX = null;   // set later, when the hatch spawns
 
@@ -677,6 +688,8 @@ const scorePopups = [];
 
 
 window.addEventListener('keydown', (e) => {
+  if (!gameStarted) return;
+
   // Only care about single-character keys (letters, numbers)
   if (e.key.length !== 1) return;
 
@@ -689,6 +702,8 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('keydown', (e) => {
+  if (!gameStarted) return;
+
   if (e.key === 'Backspace') {
     currentTyped = currentTyped.slice(0, -1);
     e.preventDefault();
@@ -697,6 +712,92 @@ window.addEventListener('keydown', (e) => {
     currentTyped = '';
   }
 });
+
+menuMusicButton.addEventListener('click', () => {
+  if (menuAudioContext) {
+    stopMenuMusic();
+  } else {
+    startMenuMusic();
+  }
+});
+
+playButton.addEventListener('click', startGame);
+returnToMenuButton.addEventListener('click', () => {
+  gameStarted = false;
+  gameOverEl.hidden = true;
+  mainMenuEl.hidden = false;
+  document.body.classList.remove('playing');
+});
+tryAgainButton.addEventListener('click', startGame);
+
+function startGame() {
+  mainMenuEl.hidden = true;
+  gameOverEl.hidden = true;
+  document.body.classList.add('playing');
+  gameStarted = true;
+  resetGame();
+  lastTime = performance.now();
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+function startMenuMusic() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    menuMusicButton.disabled = true;
+    menuMusicButton.title = 'Menu music is not supported in this browser';
+    return;
+  }
+
+  menuAudioContext = new AudioContextClass();
+  menuAudioContext.resume();
+  menuMelody = menuAudioContext.createOscillator();
+  menuBass = menuAudioContext.createOscillator();
+  const melodyGain = menuAudioContext.createGain();
+  const bassGain = menuAudioContext.createGain();
+  melodyGain.gain.value = 0.035;
+  bassGain.gain.value = 0.025;
+  menuMelody.type = 'triangle';
+  menuBass.type = 'sine';
+  menuMelody.connect(melodyGain).connect(menuAudioContext.destination);
+  menuBass.connect(bassGain).connect(menuAudioContext.destination);
+  menuMelody.frequency.value = 220;
+  menuBass.frequency.value = 110;
+  menuMelody.start();
+  menuBass.start();
+
+  const melodyNotes = [220, 261.63, 329.63, 392, 329.63, 261.63];
+  const bassNotes = [110, 130.81, 98, 146.83];
+  menuMusicStep = 0;
+  menuMusicTimer = window.setInterval(() => {
+    if (!menuAudioContext || !menuMelody || !menuBass) return;
+    const now = menuAudioContext.currentTime;
+    menuMelody.frequency.setTargetAtTime(melodyNotes[menuMusicStep % melodyNotes.length], now, 0.04);
+    if (menuMusicStep % 3 === 0) {
+      menuBass.frequency.setTargetAtTime(bassNotes[(menuMusicStep / 3) % bassNotes.length], now, 0.08);
+    }
+    menuMusicStep += 1;
+  }, 320);
+
+  menuMusicButton.setAttribute('aria-pressed', 'true');
+  menuMusicButton.setAttribute('aria-label', 'Disable menu music');
+  menuMusicButton.title = 'Disable menu music';
+}
+
+function stopMenuMusic() {
+  if (menuMusicTimer !== null) {
+    window.clearInterval(menuMusicTimer);
+    menuMusicTimer = null;
+  }
+  if (menuMelody) menuMelody.stop();
+  if (menuBass) menuBass.stop();
+  if (menuAudioContext) menuAudioContext.close();
+  menuMelody = null;
+  menuBass = null;
+  menuAudioContext = null;
+  menuMusicButton.setAttribute('aria-pressed', 'false');
+  menuMusicButton.setAttribute('aria-label', 'Enable menu music');
+  menuMusicButton.title = 'Enable menu music';
+}
 
 function getEntityY() {
   return getGroundY() - ENTITY_HEIGHT / 2;
@@ -762,6 +863,8 @@ function loseLife() {
 
 
 function gameLoop(timestamp) {
+  if (!gameStarted) return;
+
   let delta = (timestamp - lastTime) / 1000;
   lastTime = timestamp;
 
@@ -775,7 +878,7 @@ function gameLoop(timestamp) {
   update(scaledDelta);
   draw();
 
-  rafId = requestAnimationFrame(gameLoop);
+  if (gameStarted) rafId = requestAnimationFrame(gameLoop);
 }
 function getTimeScale() {
   if (obstacles.length === 0) return 1;
@@ -1329,6 +1432,7 @@ function update(delta) {
     if (rectsOverlap(o, runnerBounds)) {
     loseLife();
     o.hitRunner = true; // Mark so it only hits once
+    if (!gameStarted) return;
     }
   }
 
@@ -1346,17 +1450,20 @@ function update(delta) {
 
 function gameOver(reason) {
   cancelAnimationFrame(rafId);
-  alert('Game Over: ' + reason);
-  resetGame();
-  lastTime = performance.now();
-  rafId = requestAnimationFrame(gameLoop);
+  gameStarted = false;
+  gameOverReasonEl.textContent = reason;
+  gameOverEl.hidden = false;
 }
 function drawFloor() {
   const floorTop = getFloorTop();
   const floorH = FLOOR_HEIGHT;
-   // Solid floor band
-  ctx.fillStyle = '#000000';
+  const floorGradient = ctx.createLinearGradient(0, floorTop, 0, floorTop + floorH);
+  floorGradient.addColorStop(0, '#202522');
+  floorGradient.addColorStop(1, '#111513');
+  ctx.fillStyle = floorGradient;
   ctx.fillRect(0, floorTop, canvas.width, floorH);
+  ctx.fillStyle = 'rgba(217, 91, 91, 0.55)';
+  ctx.fillRect(0, floorTop, canvas.width, 2);
 }
 
 function draw() {
@@ -1366,10 +1473,16 @@ function draw() {
     // Draw it to cover the entire canvas
     ctx.drawImage(skyImage, 0, 0, canvas.width, canvas.height);
   } else {
-    // Fallback while loading: solid sky blue
-    ctx.fillStyle = '#87ceeb'; 
+    ctx.fillStyle = '#284944';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
+  ctx.fillStyle = 'rgba(40, 73, 68, 0.78)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const atmosphereTint = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  atmosphereTint.addColorStop(0, 'rgba(8, 13, 12, 0.08)');
+  atmosphereTint.addColorStop(1, 'rgba(8, 13, 12, 0.56)');
+  ctx.fillStyle = atmosphereTint;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.save();
 
   if (shakeTime > 0) {
@@ -1642,7 +1755,6 @@ function resetGame() {
   obstacles.length = 0;
   targetedObstacle = null;
   currentTyped = '';
-  let runnerStartX = 0;
   distanceTraveled = 0;
   chaserDistanceTraveled = 0;
 
@@ -1692,19 +1804,8 @@ function resetGame() {
 }
 
 function resizeCanvas() {
-  let w = window.innerWidth * PLAY_MAX_WIDTH;
-  let h = w / PLAY_ASPECT;
-
-  const maxH = window.innerHeight * PLAY_MAX_HEIGHT;
-  if (h > maxH) {
-    h = maxH;
-    w = h * PLAY_ASPECT;
-  }
-
-  canvas.width = Math.floor(w);
-  canvas.height = Math.floor(h);
-
-  const lineY = canvas.height * 3 / 4 - ENTITY_HEIGHT / 2;   // ← changed
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 
   if (typeof runner !== 'undefined') {
     runner.x = canvas.width * 0.6 - runner.width / 2;
@@ -1722,6 +1823,4 @@ function resizeCanvas() {
 document.fonts.ready.then(() => {
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
-  lastTime = performance.now();   // prevent huge first delta
-  rafId = requestAnimationFrame(gameLoop);
 });
