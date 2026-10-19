@@ -57,6 +57,10 @@ runnerJumpSheets[1].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or r
 runnerSlideSheets[1] = new Image();
 runnerSlideSheets[1].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
 
+// Map Images
+const skyImage = new Image();
+skyImage.src = 'sprites/Maps/Map1.png';
+
 /* Player Health System */
 const MAX_LIVES = 4;
 let lives = MAX_LIVES;
@@ -1357,7 +1361,15 @@ function drawFloor() {
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+  // 1. Draw the Sky Background
+  if (skyImage.complete && skyImage.naturalWidth > 0) {
+    // Draw it to cover the entire canvas
+    ctx.drawImage(skyImage, 0, 0, canvas.width, canvas.height);
+  } else {
+    // Fallback while loading: solid sky blue
+    ctx.fillStyle = '#87ceeb'; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
   ctx.save();
 
   if (shakeTime > 0) {
@@ -1440,7 +1452,7 @@ obstacles.forEach(o => o.draw(ctx));
   if (timeScale < 1) {
     // Fade the intensity based on how slow it is
     const intensity = (1 - timeScale) / (1 - SLOWMO_FACTOR_MIN); // 0 → 1
-    ctx.fillStyle = `rgba(255, 215, 0, ${intensity * 0.08})`;
+    ctx.fillStyle = `rgba(255, 0, 0, ${intensity * 0.08})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
