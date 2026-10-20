@@ -1468,16 +1468,10 @@ function draw() {
     // Draw it to cover the entire canvas
     ctx.drawImage(skyImage, 0, 0, canvas.width, canvas.height);
   } else {
-    ctx.fillStyle = '#284944';
+    // Fallback while loading: solid sky blue
+    ctx.fillStyle = '#87ceeb'; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
-  ctx.fillStyle = 'rgba(40, 73, 68, 0.78)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const atmosphereTint = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  atmosphereTint.addColorStop(0, 'rgba(8, 13, 12, 0.08)');
-  atmosphereTint.addColorStop(1, 'rgba(8, 13, 12, 0.56)');
-  ctx.fillStyle = atmosphereTint;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.save();
 
   if (shakeTime > 0) {

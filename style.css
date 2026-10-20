@@ -336,6 +336,14 @@ body:not(.playing) #ui {
 
 .game-over-content .menu-actions button {
   pointer-events: auto;
+  border: none;
+  background: url('sprites/Others/Button_Icons.png') center / 100% 100% no-repeat;
+  color: #9a9a9a;
+}
+
+.game-over-content .menu-actions button:hover {
+  color: #ffffff;
+  background-color: transparent;
 }
 
 @keyframes death-screen-fade {
