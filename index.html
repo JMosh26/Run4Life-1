@@ -28,6 +28,11 @@
     <div class="game-over-content">
       <h2 id="gameOverTitle" class="death-title">YOU DIED</h2>
       <p id="gameOverReason" class="menu-subtitle"></p>
+      <div class="final-score" aria-label="Run results">
+        <p>SURVIVAL TIME <span id="gameOverScore">00:00</span></p>
+        <p>BEST TIME <span id="gameOverBest">NO RECORD</span></p>
+        <p id="newBestMessage" class="new-best-message" hidden>NEW BEST!</p>
+      </div>
       <div class="menu-actions">
         <button id="returnToMenu" class="secondary-button" type="button">MAIN MENU</button>
         <button id="tryAgain" class="play-button" type="button">TRY AGAIN</button>
@@ -37,6 +42,11 @@
 
   <h1 id="gameTitle">Run4Life</h1>
   <canvas id="game"></canvas>
+
+  <aside id="survivalHud" class="survival-hud" aria-label="Survival time scores">
+    <p>CURRENT <span id="currentScore">00:00</span></p>
+    <p>BEST <span id="bestScore">NO RECORD</span></p>
+  </aside>
 
   <div id="ui"></div>   <!-- optional: for future overlays -->
 

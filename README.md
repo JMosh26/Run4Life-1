@@ -17,6 +17,7 @@ A typing-based endless runner. Type the words on incoming obstacles to make your
 - **Letter keys** — Type the current word.
 - **Backspace** — Delete the last typed letter.
 - **Escape** — Clear your typing.
+- **At the hatch** — Type each of the three displayed words and press Enter to submit. A wrong submission costs one lockpick.
 
 ## Health System & States
 
@@ -45,9 +46,13 @@ Difficulty scales with the distance traveled during the 1-minute journey.
 | 35s (5250px)    | Hard words, 10% slower world, 3.5s spawn interval |
 | 60s (9000px)    | The Escape Hatch appears (end of journey) |
 
+At the hatch, correctly submit three words to escape. The hatch challenge has its own three lockpicks and does not use runner lives. The chaser moves at 30% speed during the challenge; if all lockpicks are lost, the hatch drops away and the chaser moves at 200% speed.
+
 The chaser also accelerates over the journey: **50 px/s at the start → 120 px/s at the end**.
 
 ## Scoring
+
+Survival time is the run score. The current time and saved best are shown in the top-right while playing; the best time persists in the browser between sessions. The game-over screen shows the final time, best time, and a **NEW BEST!** message when appropriate. A first-time player sees **NO RECORD** until their first run ends.
 
 | Source | Points |
 |--------|--------|
@@ -117,7 +122,7 @@ Open `index.html` in any modern browser — no build step required.
 - [x] **Main Menu:** Animated menu with a "PLAY" button, scrolling road with runner/chaser sprites, and toggleable menu music (WebAudio).
 - [x] **Death Screen UI:** Custom HTML/CSS game-over overlay with the loss reason, plus MAIN MENU / TRY AGAIN buttons.
 - [ ] **Unlockable Maps:** Inside the "PLAY" button, add unlockable maps based on the player's highest distance/high score.
-- [ ] **Hatch Sequence (Endgame):** At the end of the 60-second journey, a hatch appears. The player must type 3 words (with 3 lock-pick tries) to escape before the chaser catches them. *(Meter icon and `HATCH_OFFSET_FROM_RUNNER` constant already exist.)*
+- [x] **Hatch Sequence (Endgame):** At the end of the journey, a hatch rises into view. Submit three words using three independent lockpicks to escape before the chaser catches you.
 - [ ] **Obstacle Sprite Variants:** Finish implementing the broken/damaged obstacle sprites at higher distances.
 
 ## Notes for Contributors

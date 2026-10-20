@@ -16,7 +16,7 @@ html, body {
   min-height: 100%;
   background: var(--menu-atmosphere);
   color: #fff;
-  font-family: monospace;
+  font-family: Georgia, 'Times New Roman', serif;
   overflow: hidden;
 }
 
@@ -34,7 +34,8 @@ body {
 
 body:not(.playing) #game,
 body:not(.playing) #gameTitle,
-body:not(.playing) #ui {
+body:not(.playing) #ui,
+body:not(.playing) #survivalHud {
   display: none;
 }
 
@@ -87,7 +88,7 @@ body:not(.playing) #ui {
 .menu-title {
   margin: 0;
   color: #b51f2b;
-  font-family: 'GameMode', monospace;
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: 72px;
   font-weight: normal;
   line-height: 1.15;
@@ -120,7 +121,7 @@ body:not(.playing) #ui {
   border-radius: 4px;
   color: #f6e9dc;
   background: #8f1e2b;
-  font: bold 16px monospace;
+  font: bold 16px Georgia, 'Times New Roman', serif;
   cursor: pointer;
   transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
 }
@@ -271,6 +272,40 @@ body:not(.playing) #ui {
   box-shadow: none;
 }
 
+.survival-hud {
+  position: fixed;
+  z-index: 2;
+  top: 22px;
+  right: 24px;
+  min-width: 170px;
+  padding: 12px 16px;
+  border: 1px solid rgba(191, 77, 85, 0.72);
+  border-left: 4px solid #a91e2b;
+  background: rgba(8, 13, 12, 0.82);
+  box-shadow: 0 5px 22px rgba(0, 0, 0, 0.5);
+  color: #e4c9bd;
+  font-family: 'GameMode', monospace;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.survival-hud p {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.survival-hud p + p {
+  margin-top: 8px;
+}
+
+.survival-hud span {
+  color: #e6aa78;
+  font-size: 16px;
+}
+
 /* ============================================
    UI overlay (word display + input)
    ============================================ */
@@ -315,7 +350,7 @@ body:not(.playing) #ui {
 .death-title {
   margin: 0;
   color: #a91e2b;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: clamp(48px, 10vw, 88px);
   font-weight: normal;
   line-height: 1.05;
@@ -323,11 +358,55 @@ body:not(.playing) #ui {
   animation: death-title-burn 1.1s ease-out both;
 }
 
+.game-over.is-win .death-title {
+  color: #83d69a;
+  text-shadow: 0 2px 0 #d0f4d7, 0 8px 22px rgba(25, 105, 55, 0.55), 4px 8px 0 #101b13;
+}
+
 .game-over-content .menu-subtitle {
   min-height: 20px;
   margin: 20px 0 26px;
   color: #e2d9d2;
   text-shadow: 0 2px 8px #000;
+}
+
+.final-score {
+  width: min(340px, 100%);
+  margin: 0 auto 28px;
+  color: #ead7ca;
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 5px #000;
+}
+
+.final-score p {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 10px 0;
+  font-size: 15px;
+}
+
+.final-score span {
+  color: #f0bb8a;
+}
+
+.final-score .new-best-message {
+  display: block;
+  margin-top: 18px;
+  color: #f0786c;
+  font-size: 21px;
+  text-align: center;
+  text-shadow: 0 0 12px rgba(240, 120, 108, 0.65);
+}
+
+.final-score .new-best-message[hidden] {
+  display: none;
+}
+
+.game-over.is-win .final-score .new-best-message {
+  color: #83d69a;
+  text-shadow: 0 0 12px rgba(131, 214, 154, 0.6);
 }
 
 .game-over-content .menu-actions {

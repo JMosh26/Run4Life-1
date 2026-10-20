@@ -8,7 +8,13 @@ const mainMenuEl = document.getElementById('mainMenu');
 const playButton = document.getElementById('playButton');
 const menuMusicButton = document.getElementById('menuMusic');
 const gameOverEl = document.getElementById('gameOver');
+const gameOverTitleEl = document.getElementById('gameOverTitle');
 const gameOverReasonEl = document.getElementById('gameOverReason');
+const gameOverScoreEl = document.getElementById('gameOverScore');
+const gameOverBestEl = document.getElementById('gameOverBest');
+const newBestMessageEl = document.getElementById('newBestMessage');
+const currentScoreEl = document.getElementById('currentScore');
+const bestScoreEl = document.getElementById('bestScore');
 const returnToMenuButton = document.getElementById('returnToMenu');
 const tryAgainButton = document.getElementById('tryAgain');
 let gameStarted = false;
@@ -17,6 +23,13 @@ let menuMelody = null;
 let menuBass = null;
 let menuMusicTimer = null;
 let menuMusicStep = 0;
+const BEST_SCORE_STORAGE_KEY = 'run4life.bestSurvivalTime';
+const savedBestScore = localStorage.getItem(BEST_SCORE_STORAGE_KEY);
+let bestSurvivalTime = savedBestScore === null ? null : Number(savedBestScore);
+if (!Number.isFinite(bestSurvivalTime) || bestSurvivalTime < 0) {
+  bestSurvivalTime = null;
+}
+let survivalTime = 0;
 
 // -- RUNNER SPRITE FRAMES -- //
 //Running Sprite
@@ -89,6 +102,129 @@ for(let i = 1; i <= 4; i++){
   runnerHeadSheets[i].src = `sprites/Meter-Sprites/meter-head-runner-${i}.png`;
 }
 
+function drawHatch() {
+  const centerX = canvas.width / 2;
+  const panelY = hatchY - 58;
+  const panelWidth = Math.min(460, Math.max(260, canvas.width - 32));
+  const panelX = centerX - panelWidth / 2;
+  const panelHeight = 142;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.fillStyle = 'rgba(5, 10, 11, 0.92)';
+  ctx.strokeStyle = '#b7c8b4';
+  ctx.lineWidth = 3;
+  roundRect(ctx, panelX, panelY - 20, panelWidth, panelHeight, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#e8eddf';
+  ctx.font = 'bold 18px monospace';
+  ctx.fillText(hatchState === 'failed' ? 'HATCH SEALED' : 'UNLOCK THE HATCH', centerX, panelY + 4);
+
+  const wordY = panelY + 38;
+  ctx.font = 'bold 16px monospace';
+  hatchWords.forEach((word, index) => {
+    const wordX = centerX - 105 + index * 105;
+    ctx.fillStyle = index < hatchWordIndex ? '#83d69a' : index === hatchWordIndex ? '#f2d26a' : '#68716b';
+    ctx.fillText(word.toUpperCase(), wordX, wordY);
+    if (index === hatchWordIndex && hatchState === 'active') {
+      ctx.strokeStyle = '#f2d26a';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(wordX - 42, wordY - 15, 84, 30);
+    }
+  });
+
+  ctx.fillStyle = '#d6dfd3';
+  ctx.font = '14px monospace';
+  const prompt = hatchState === 'entering'
+    ? 'THE HATCH IS RISING...'
+    : hatchState === 'failed'
+      ? 'NO LOCKPICKS LEFT'
+      : `TYPE: ${(hatchWords[hatchWordIndex] || '').toUpperCase()}  [ENTER]`;
+  ctx.fillText(prompt, centerX, panelY + 72);
+
+  if (hatchState === 'active') {
+    const inputWidth = Math.min(230, panelWidth - 36);
+    ctx.fillStyle = '#101817';
+    ctx.fillRect(centerX - inputWidth / 2, panelY + 91, inputWidth, 28);
+    ctx.strokeStyle = '#83d69a';
+    ctx.strokeRect(centerX - inputWidth / 2, panelY + 91, inputWidth, 28);
+    ctx.fillStyle = '#83d69a';
+    ctx.font = '16px monospace';
+    ctx.fillText(hatchTyped || '_', centerX, panelY + 105);
+  }
+
+  const hatchXPos = centerX - HATCH_WIDTH / 2;
+  const hatchTop = hatchY;
+  ctx.fillStyle = '#384744';
+  ctx.strokeStyle = '#c6d2c4';
+  ctx.lineWidth = 5;
+  roundRect(ctx, hatchXPos, hatchTop, HATCH_WIDTH, HATCH_HEIGHT, 12);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#53635d';
+  roundRect(ctx, hatchXPos + 18, hatchTop + 18, HATCH_WIDTH - 36, HATCH_HEIGHT - 36, 8);
+  ctx.fill();
+
+  ctx.fillStyle = '#d1b76a';
+  for (const [boltX, boltY] of [
+    [hatchXPos + 12, hatchTop + 12],
+    [hatchXPos + HATCH_WIDTH - 12, hatchTop + 12],
+    [hatchXPos + 12, hatchTop + HATCH_HEIGHT - 12],
+    [hatchXPos + HATCH_WIDTH - 12, hatchTop + HATCH_HEIGHT - 12],
+  ]) {
+    ctx.beginPath();
+    ctx.arc(boltX, boltY, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#c6d2c4';
+  ctx.font = 'bold 14px monospace';
+  ctx.fillText('ESCAPE', centerX, hatchTop + HATCH_HEIGHT / 2);
+
+  const lockpickX = panelX + panelWidth - 22;
+  const lockpickStartY = panelY + 18;
+  for (let index = 0; index < HATCH_LOCKPICK_COUNT; index++) {
+    drawLockpick(lockpickX, lockpickStartY + index * 38, index < lockpicksRemaining);
+  }
+
+  ctx.restore();
+}
+
+function drawLockpick(x, y, active) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.globalAlpha = active ? 1 : 0.25;
+  ctx.strokeStyle = active ? '#f2d26a' : '#89918b';
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(0, 0, 7, 0, Math.PI * 2);
+  ctx.moveTo(7, 0);
+  ctx.lineTo(23, 0);
+  ctx.lineTo(23, 7);
+  ctx.moveTo(17, 0);
+  ctx.lineTo(17, 5);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function roundRect(context, x, y, width, height, radius) {
+  const corner = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + corner, y);
+  context.lineTo(x + width - corner, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + corner);
+  context.lineTo(x + width, y + height - corner);
+  context.quadraticCurveTo(x + width, y + height, x + width - corner, y + height);
+  context.lineTo(x + corner, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - corner);
+  context.lineTo(x, y + corner);
+  context.quadraticCurveTo(x, y, x + corner, y);
+  context.closePath();
+}
 
 const chaserHeadImage = new Image();
 chaserHeadImage.src = 'sprites/Meter-Sprites/meter-head-chaser.png';
@@ -144,6 +280,13 @@ const METER_MARKER_HEIGHT = 24;
 
 // Hatch — position relative to the runner's start
 const HATCH_OFFSET_FROM_RUNNER = JOURNEY_DISTANCE;
+const HATCH_WORD_COUNT = 3;
+const HATCH_LOCKPICK_COUNT = 3;
+const HATCH_TRANSITION_DURATION = 0.8;
+const HATCH_WIDTH = 220;
+const HATCH_HEIGHT = 150;
+const HATCH_CHASER_SLOW_FACTOR = 0.3;
+const HATCH_CHASER_FAILURE_FACTOR = 2;
 
 //Obstacle Variants (1 - Barrier 2 - Stop sign 3 - Cone)
 const OBSTACLE_VARIANTS = [
@@ -274,6 +417,13 @@ let chaserDistanceTraveled = 0;
 let runnerStartX = 0;
 //Hatch Position
 let hatchX = null;   // set later, when the hatch spawns
+let hatchState = 'inactive';
+let hatchY = 0;
+let hatchTransitionTime = 0;
+let hatchWords = [];
+let hatchWordIndex = 0;
+let hatchTyped = '';
+let lockpicksRemaining = HATCH_LOCKPICK_COUNT;
 
 /**
  * Entity — Abstract base class for all game objects with a position and size.
@@ -525,6 +675,11 @@ update(delta, runner, obstacles, worldSpeed) {
 
   // --- Speed ---
   let chaserSpeed = getChaserSpeed();
+  if (hatchState === 'entering' || hatchState === 'active') {
+    chaserSpeed *= HATCH_CHASER_SLOW_FACTOR;
+  } else if (hatchState === 'failed') {
+    chaserSpeed *= HATCH_CHASER_FAILURE_FACTOR;
+  }
   if (this.staggerTime > 0) {
     chaserSpeed *= CHASER_STAGGER_FACTOR;
   }
@@ -690,6 +845,13 @@ const scorePopups = [];
 window.addEventListener('keydown', (e) => {
   if (!gameStarted) return;
 
+  if (hatchState !== 'inactive') {
+    if (hatchState === 'active' && e.key.length === 1 && /^[a-z]$/i.test(e.key)) {
+      hatchTyped += e.key.toLowerCase();
+    }
+    return;
+  }
+
   // Only care about single-character keys (letters, numbers)
   if (e.key.length !== 1) return;
 
@@ -703,6 +865,20 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keydown', (e) => {
   if (!gameStarted) return;
+
+  if (hatchState !== 'inactive') {
+    if (hatchState !== 'active') return;
+    if (e.key === 'Backspace') {
+      hatchTyped = hatchTyped.slice(0, -1);
+      e.preventDefault();
+    } else if (e.key === 'Escape') {
+      hatchTyped = '';
+    } else if (e.key === 'Enter') {
+      submitHatchWord();
+      e.preventDefault();
+    }
+    return;
+  }
 
   if (e.key === 'Backspace') {
     currentTyped = currentTyped.slice(0, -1);
@@ -725,6 +901,7 @@ playButton.addEventListener('click', startGame);
 returnToMenuButton.addEventListener('click', () => {
   gameStarted = false;
   gameOverEl.hidden = true;
+  gameOverEl.classList.remove('is-win');
   mainMenuEl.hidden = false;
   document.body.classList.remove('playing');
 });
@@ -733,9 +910,11 @@ tryAgainButton.addEventListener('click', startGame);
 function startGame() {
   mainMenuEl.hidden = true;
   gameOverEl.hidden = true;
+  gameOverEl.classList.remove('is-win');
   document.body.classList.add('playing');
   gameStarted = true;
   resetGame();
+  updateScoreDisplay();
   lastTime = performance.now();
   rafId = requestAnimationFrame(gameLoop);
 }
@@ -834,6 +1013,45 @@ function getSpawnInterval() {
 function getHatchWorldX() {
   return runnerStartX + JOURNEY_DISTANCE;
 }
+
+function startHatchSequence() {
+  hatchState = 'entering';
+  hatchY = canvas.height + HATCH_HEIGHT;
+  hatchTransitionTime = 0;
+  hatchWords = Array.from({ length: HATCH_WORD_COUNT }, () => {
+    const pool = WORD_POOLS.easy;
+    return pool[Math.floor(Math.random() * pool.length)];
+  });
+  hatchWordIndex = 0;
+  hatchTyped = '';
+  lockpicksRemaining = HATCH_LOCKPICK_COUNT;
+  obstacles.length = 0;
+  targetedObstacle = null;
+  currentTyped = '';
+}
+
+function submitHatchWord() {
+  if (!hatchTyped) return;
+
+  if (hatchTyped === hatchWords[hatchWordIndex]) {
+    hatchWordIndex += 1;
+    hatchTyped = '';
+    if (hatchWordIndex === HATCH_WORD_COUNT) {
+      hatchState = 'opened';
+      gameOver('You unlocked the hatch and escaped!', 'ESCAPED');
+    }
+    return;
+  }
+
+  lockpicksRemaining -= 1;
+  hatchTyped = '';
+  wrongFlashTime = WRONG_FLASH_DURATION;
+  if (lockpicksRemaining <= 0) {
+    hatchState = 'failed';
+    hatchTransitionTime = 0;
+  }
+}
+
 function getSpeedMultiplier() {
   if (lives >= 4) return 1.00; // Normal
   if (lives >= 3) return 0.90; // Minor (10% slower)
@@ -875,7 +1093,7 @@ function gameLoop(timestamp) {
   const timeScale = getTimeScale();
   const scaledDelta = delta * timeScale;
 
-  update(scaledDelta);
+  update(scaledDelta, delta);
   draw();
 
   if (gameStarted) rafId = requestAnimationFrame(gameLoop);
@@ -1365,28 +1583,56 @@ function updateSlide(slide, entity, delta) {
   slide.width = entity.width + (SLIDE_WIDTH - entity.width) * phase;
 }
 
-function update(delta) {
+function update(delta, elapsedTime = delta) {
+  survivalTime += elapsedTime;
+  updateScoreDisplay();
+
+  if (hatchState === 'inactive' && distanceTraveled >= JOURNEY_DISTANCE) {
+    startHatchSequence();
+  }
+
+  const isHatchSequence = hatchState !== 'inactive';
   const worldSpeed = getWorldSpeed();   // compute once per frame 
-  distanceTraveled += worldSpeed * delta;
+  if (!isHatchSequence) {
+    distanceTraveled = Math.min(distanceTraveled + worldSpeed * delta, JOURNEY_DISTANCE);
+  }
 
   //Countdown for wrong letter
   if (wrongFlashTime > 0) wrongFlashTime -= delta;
   if (shakeTime > 0) shakeTime -= delta;
   if (hitCooldownTime > 0) hitCooldownTime -= delta;
 
+  if (hatchState === 'entering') {
+    hatchTransitionTime += delta;
+    const progress = Math.min(hatchTransitionTime / HATCH_TRANSITION_DURATION, 1);
+    const easedProgress = 1 - Math.pow(1 - progress, 3);
+    hatchY = canvas.height / 2 - HATCH_HEIGHT / 2 +
+      (canvas.height + HATCH_HEIGHT - (canvas.height / 2 - HATCH_HEIGHT / 2)) * (1 - easedProgress);
+    if (progress >= 1) {
+      hatchState = 'active';
+    }
+  } else if (hatchState === 'failed') {
+    hatchTransitionTime += delta;
+    const progress = Math.min(hatchTransitionTime / HATCH_TRANSITION_DURATION, 1);
+    const easedProgress = progress * progress * (3 - 2 * progress);
+    hatchY = canvas.height / 2 - HATCH_HEIGHT / 2 +
+      (canvas.height + HATCH_HEIGHT - (canvas.height / 2 - HATCH_HEIGHT / 2)) * easedProgress;
+  }
+
   // -- Runner Update -- //
   runner.update(delta);
 
   // -- Chaser Update -- //
-  chaser.update(delta, runner, obstacles, worldSpeed);
-
+  chaser.update(delta, runner, isHatchSequence ? [] : obstacles, worldSpeed);
 
   // --- Floor scroll ---
-  floorScroll -= getWorldSpeed() * delta;
-  if (floorScroll <= -80) floorScroll = 0;
+  if (!isHatchSequence) {
+    floorScroll -= getWorldSpeed() * delta;
+    if (floorScroll <= -80) floorScroll = 0;
+  }
 
   // --- Distance score ---
-  distanceScore += worldSpeed * delta * SCORE_PER_PIXEL;
+  if (!isHatchSequence) distanceScore += worldSpeed * delta * SCORE_PER_PIXEL;
 
   for (let i = scorePopups.length - 1; i >= 0; i--) {
   scorePopups[i].life -= delta; 
@@ -1396,7 +1642,7 @@ function update(delta) {
 
   // --- Move obstacles ---
 
-  obstacles.forEach(o => o.update(delta, worldSpeed));
+  if (!isHatchSequence) obstacles.forEach(o => o.update(delta, worldSpeed));
 
   // --- Remove off-screen obstacles ---
   for (let i = obstacles.length - 1; i >= 0; i--) {
@@ -1404,16 +1650,20 @@ function update(delta) {
   }
 
   // --- Choose typing target ---
-  pickTargetObstacle();
+  if (!isHatchSequence) pickTargetObstacle();
 
   // --- Spawn timer ---
-  spawnTimer += delta;
-  if (spawnTimer >= spawnInterval) {
-    spawnTimer = 0;
-    spawnObstacle();
+  if (!isHatchSequence) {
+    spawnTimer += delta;
+    if (spawnTimer >= spawnInterval) {
+      spawnTimer = 0;
+      spawnObstacle();
+    }
   }
-  checkActionTriggers();
-  checkChaserAction();
+  if (!isHatchSequence) {
+    checkActionTriggers();
+    checkChaserAction();
+  }
   updateJump(runner.jump, delta);
   updateSlide(runner.slide, runner, delta);
   
@@ -1428,7 +1678,7 @@ function update(delta) {
     // --- Collisions ---
   // --- Runner collision (uses visual bounds) ---
   const runnerBounds = getRunnerBounds();
-  for (const o of obstacles) {
+  for (const o of isHatchSequence ? [] : obstacles) {
     if (rectsOverlap(o, runnerBounds)) {
     loseLife();
     o.hitRunner = true; // Mark so it only hits once
@@ -1448,11 +1698,37 @@ function update(delta) {
   // }
 }
 
-function gameOver(reason) {
+function gameOver(reason, title = 'YOU DIED') {
   cancelAnimationFrame(rafId);
   gameStarted = false;
+  const isNewBest = bestSurvivalTime === null || survivalTime > bestSurvivalTime;
+  if (isNewBest) {
+    bestSurvivalTime = survivalTime;
+    localStorage.setItem(BEST_SCORE_STORAGE_KEY, String(bestSurvivalTime));
+  }
+  updateScoreDisplay();
+  gameOverScoreEl.textContent = formatSurvivalTime(survivalTime);
+  gameOverBestEl.textContent = formatSurvivalTime(bestSurvivalTime);
+  newBestMessageEl.hidden = !isNewBest;
+  gameOverEl.classList.toggle('is-win', title === 'ESCAPED');
+  gameOverTitleEl.textContent = title;
   gameOverReasonEl.textContent = reason;
   gameOverEl.hidden = false;
+}
+
+function formatSurvivalTime(seconds) {
+  if (seconds === null) return 'NO RECORD';
+  const totalSeconds = Math.floor(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+}
+
+function updateScoreDisplay() {
+  const currentScore = formatSurvivalTime(survivalTime);
+  const bestScore = formatSurvivalTime(bestSurvivalTime);
+  if (currentScoreEl.textContent !== currentScore) currentScoreEl.textContent = currentScore;
+  if (bestScoreEl.textContent !== bestScore) bestScoreEl.textContent = bestScore;
 }
 function drawFloor() {
   const floorTop = getFloorTop();
@@ -1541,6 +1817,7 @@ const chaserY = chaser.y + (chaser.height - chaserH);
 chaser.draw(ctx);
 
 obstacles.forEach(o => o.draw(ctx));
+if (hatchState !== 'inactive') drawHatch();
 
   scorePopups.forEach(p => {
   const alpha = p.life / p.maxLife;
@@ -1739,7 +2016,15 @@ function spawnObstacle() {
 }
 function resetGame() {
 
+  survivalTime = 0;
   lives = MAX_LIVES;
+  hatchState = 'inactive';
+  hatchY = canvas.height + HATCH_HEIGHT;
+  hatchTransitionTime = 0;
+  hatchWords = [];
+  hatchWordIndex = 0;
+  hatchTyped = '';
+  lockpicksRemaining = HATCH_LOCKPICK_COUNT;
   hitCooldownTime = 0;
   obstacles.length = 0;
   targetedObstacle = null;
