@@ -7,6 +7,34 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <main id="mainMenu" aria-label="Run4Life main menu">
+    <div class="menu-road" aria-hidden="true">
+      <div class="menu-chaser"></div>
+      <div class="menu-runner"></div>
+    </div>
+    <div class="menu-content">
+      <p class="menu-kicker">ENDLESS RUNNER / 01</p>
+      <h1 class="menu-title">RUN<span>4</span>LIFE</h1>
+      <p class="menu-subtitle">TYPE FAST. KEEP MOVING.</p>
+      <div class="menu-actions">
+        <button id="menuMusic" class="music-button" type="button" aria-label="Enable menu music" aria-pressed="false" title="Enable menu music">♪</button>
+        <button id="playButton" class="play-button" type="button">PLAY <span aria-hidden="true">↗</span></button>
+      </div>
+    </div>
+    <p class="menu-footer" aria-hidden="true">ESCAPE THE CHASE</p>
+  </main>
+
+  <section id="gameOver" class="game-over" aria-labelledby="gameOverTitle" aria-modal="true" role="dialog" hidden>
+    <div class="game-over-content">
+      <h2 id="gameOverTitle" class="death-title">YOU DIED</h2>
+      <p id="gameOverReason" class="menu-subtitle"></p>
+      <div class="menu-actions">
+        <button id="returnToMenu" class="secondary-button" type="button">MAIN MENU</button>
+        <button id="tryAgain" class="play-button" type="button">TRY AGAIN</button>
+      </div>
+    </div>
+  </section>
+
   <h1 id="gameTitle">Run4Life</h1>
   <canvas id="game"></canvas>
 

@@ -5,11 +5,16 @@
   font-style: normal;
   font-display: swap;
 }
+:root {
+  --menu-atmosphere:
+    linear-gradient(180deg, rgba(8, 13, 12, 0.1) 0%, rgba(8, 13, 12, 0.28) 52%, #080d0c 100%),
+    linear-gradient(112deg, #284944 0%, #172c2a 48%, #111918 100%);
+}
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
-  background: #000;
+  min-height: 100%;
+  background: var(--menu-atmosphere);
   color: #fff;
   font-family: monospace;
   overflow: hidden;
@@ -19,6 +24,7 @@ html, body {
    Center everything in the window
    ============================================ */
 body {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -26,15 +32,243 @@ body {
   gap: 12px;
 }
 
+body:not(.playing) #game,
+body:not(.playing) #gameTitle,
+body:not(.playing) #ui {
+  display: none;
+}
+
+#mainMenu {
+  position: fixed;
+  z-index: 5;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--menu-atmosphere);
+}
+
+#mainMenu[hidden] {
+  display: none;
+}
+
+#mainMenu::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: '';
+  opacity: 0.35;
+  background: repeating-linear-gradient(115deg, transparent 0 92px, rgba(205, 232, 172, 0.07) 93px 94px, transparent 95px 176px);
+  animation: menu-drift 18s linear infinite;
+}
+
+.menu-content {
+  z-index: 1;
+  width: min(620px, calc(100% - 40px));
+  margin-top: -8vh;
+  text-align: center;
+  animation: menu-arrive 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.menu-kicker,
+.menu-footer {
+  color: #d95b5b;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0;
+  text-shadow: 0 2px 0 #4b1015;
+}
+
+.menu-kicker {
+  margin: 0 0 18px;
+}
+
+.menu-title {
+  margin: 0;
+  color: #b51f2b;
+  font-family: 'GameMode', monospace;
+  font-size: 72px;
+  font-weight: normal;
+  line-height: 1.15;
+  text-shadow: 0 2px 0 #f0786c, 0 6px 0 #631019, 5px 9px 0 #10100f;
+}
+
+.menu-title span {
+  color: #f0786c;
+}
+
+.menu-subtitle {
+  margin: 20px 0 34px;
+  color: #f0d5cc;
+  font-size: 14px;
+  text-shadow: 0 2px 0 #54151a;
+}
+
+.menu-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.play-button,
+.music-button,
+.secondary-button {
+  min-height: 56px;
+  border: 2px solid #d95b5b;
+  border-radius: 4px;
+  color: #f6e9dc;
+  background: #8f1e2b;
+  font: bold 16px monospace;
+  cursor: pointer;
+  transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.play-button {
+  min-width: 190px;
+  padding: 0 22px;
+}
+
+.play-button span {
+  margin-left: 20px;
+}
+
+.secondary-button {
+  min-width: 150px;
+  padding: 0 18px;
+  background: rgba(8, 13, 12, 0.72);
+}
+
+.music-button {
+  width: 56px;
+  padding: 0;
+  background: rgba(8, 13, 12, 0.48);
+  font-size: 24px;
+}
+
+.music-button[aria-pressed="true"] {
+  background: #bd3843;
+  box-shadow: 0 0 22px rgba(217, 91, 91, 0.35);
+}
+
+.play-button:hover,
+.music-button:hover,
+.secondary-button:hover {
+  transform: translateY(-3px);
+  background-color: #b52d3a;
+}
+
+.play-button:focus-visible,
+.music-button:focus-visible,
+.secondary-button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+}
+
+.menu-footer {
+  position: absolute;
+  z-index: 2;
+  left: 24px;
+  bottom: 25px;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.menu-road {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: clamp(170px, 30vh, 260px);
+  overflow: hidden;
+  border-top: 2px solid rgba(217, 91, 91, 0.55);
+  background: linear-gradient(180deg, #202522, #111513);
+}
+
+.menu-road::after {
+  position: absolute;
+  z-index: 0;
+  top: 55%;
+  left: 0;
+  width: 200%;
+  height: 5px;
+  content: '';
+  background: repeating-linear-gradient(90deg, #c5d6a2 0 44px, transparent 44px 96px);
+  opacity: 0.65;
+  animation: road-scroll 1.2s linear infinite;
+}
+
+.menu-runner,
+.menu-chaser {
+  position: absolute;
+  z-index: 1;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+}
+
+.menu-runner {
+  bottom: 5%;
+  left: 68%;
+  height: 88%;
+  aspect-ratio: 3 / 5;
+  background-image: url('sprites/Character-Sprites/runner-run-4.png');
+  background-size: 1000% 100%;
+  animation: runner-stride 800ms linear infinite;
+}
+
+.menu-chaser {
+  bottom: 8%;
+  left: 34%;
+  height: 72%;
+  aspect-ratio: 1;
+  background-image: url('sprites/Character-Sprites/chaser-run.png');
+  background-size: 900% 100%;
+  animation: chaser-stride 950ms linear infinite;
+}
+
+@keyframes menu-drift {
+  to { background-position: 176px 0; }
+}
+
+@keyframes menu-arrive {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes road-scroll {
+  to { transform: translateX(-96px); }
+}
+
+@keyframes runner-stride {
+  0% {
+    background-position: 0 0;
+    animation-timing-function: steps(9, end);
+  }
+  90%, 100% { background-position: 100% 0; }
+}
+
+@keyframes chaser-stride {
+  0% {
+    background-position: 0 0;
+    animation-timing-function: steps(8, end);
+  }
+  88.8888889%, 100% { background-position: 100% 0; }
+}
+
 /* ============================================
    Play area (canvas)
    ============================================ */
 #game {
+  position: fixed;
+  inset: 0;
   display: block;
-  background: #87ceeb;
-  border: 3px solid #444;
-  border-radius: 8px;
-  box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* ============================================
@@ -50,6 +284,114 @@ body {
   align-items: center;
   gap: 8px;
   pointer-events: none;
+}
+
+#gameTitle {
+  display: none;
+}
+
+.game-over {
+  position: fixed;
+  z-index: 6;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(5, 7, 7, 0.76);
+  animation: death-screen-fade 900ms ease-out both;
+}
+
+.game-over[hidden] {
+  display: none;
+}
+
+.game-over-content {
+  width: min(560px, 100%);
+  padding: 30px 24px;
+  text-align: center;
+  animation: death-content-arrive 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.death-title {
+  margin: 0;
+  color: #a91e2b;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(48px, 10vw, 88px);
+  font-weight: normal;
+  line-height: 1.05;
+  text-shadow: 0 2px 0 #e34b52, 0 8px 22px rgba(120, 0, 12, 0.7), 4px 8px 0 #16090a;
+  animation: death-title-burn 1.1s ease-out both;
+}
+
+.game-over-content .menu-subtitle {
+  min-height: 20px;
+  margin: 20px 0 26px;
+  color: #e2d9d2;
+  text-shadow: 0 2px 8px #000;
+}
+
+.game-over-content .menu-actions {
+  flex-wrap: wrap;
+}
+
+.game-over-content .menu-actions button {
+  pointer-events: auto;
+}
+
+@keyframes death-screen-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes death-content-arrive {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes death-title-burn {
+  from { opacity: 0; filter: blur(7px); transform: scale(0.96); }
+  to { opacity: 1; filter: blur(0); transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-over,
+  .game-over-content,
+  .death-title {
+    animation-duration: 1ms;
+  }
+}
+
+@media (max-width: 600px) {
+  .menu-title {
+    font-size: 48px;
+  }
+
+  .menu-runner {
+    left: 64%;
+    height: min(88%, 32vw);
+  }
+
+  .menu-chaser {
+    left: 26%;
+    height: min(72%, 28vw);
+  }
+
+  .menu-footer {
+    left: 12px;
+    bottom: 16px;
+  }
+
+  .game-over-content {
+    padding: 28px 16px;
+  }
+
+  .game-over-content .menu-actions {
+    flex-direction: column;
+  }
+
+  .game-over-content .menu-actions button {
+    width: 100%;
+  }
 }
 
 #wordDisplay {
