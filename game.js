@@ -1457,13 +1457,8 @@ function gameOver(reason) {
 function drawFloor() {
   const floorTop = getFloorTop();
   const floorH = FLOOR_HEIGHT;
-  const floorGradient = ctx.createLinearGradient(0, floorTop, 0, floorTop + floorH);
-  floorGradient.addColorStop(0, '#202522');
-  floorGradient.addColorStop(1, '#111513');
-  ctx.fillStyle = floorGradient;
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, floorTop, canvas.width, floorH);
-  ctx.fillStyle = 'rgba(217, 91, 91, 0.55)';
-  ctx.fillRect(0, floorTop, canvas.width, 2);
 }
 
 function draw() {
