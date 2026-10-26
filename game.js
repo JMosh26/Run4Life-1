@@ -60,7 +60,7 @@ runnerRunSheets[3] = new Image();
 runnerRunSheets[3].src = 'sprites/Character-Sprites/runner-run-3.png';
 // Assuming you also have jump/slide for state 3, otherwise point them to 4
 runnerJumpSheets[3] = new Image();
-runnerJumpSheets[3].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerJumpSheets[3].src = 'sprites/Character-Sprites/runner-jump-3.png'; // or runner-jump-4.png
 runnerSlideSheets[3] = new Image();
 runnerSlideSheets[3].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
 
@@ -68,7 +68,7 @@ runnerSlideSheets[3].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or
 runnerRunSheets[2] = new Image();
 runnerRunSheets[2].src = 'sprites/Character-Sprites/runner-run-2.png';
 runnerJumpSheets[2] = new Image();
-runnerJumpSheets[2].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerJumpSheets[2].src = 'sprites/Character-Sprites/runner-jump-2.png'; // or runner-jump-4.png
 runnerSlideSheets[2] = new Image();
 runnerSlideSheets[2].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
 
@@ -76,7 +76,7 @@ runnerSlideSheets[2].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or
 runnerRunSheets[1] = new Image();
 runnerRunSheets[1].src = 'sprites/Character-Sprites/runner-run-1.png';
 runnerJumpSheets[1] = new Image();
-runnerJumpSheets[1].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerJumpSheets[1].src = 'sprites/Character-Sprites/runner-jump-1.png'; // or runner-jump-4.png
 runnerSlideSheets[1] = new Image();
 runnerSlideSheets[1].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
 
