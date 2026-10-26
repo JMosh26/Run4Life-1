@@ -17,13 +17,6 @@ A typing-based endless runner. Type the words on incoming obstacles to make your
 - **Letter keys** — Type the current word.
 - **Backspace** — Delete the last typed letter.
 - **Escape** — Clear your typing.
-- Survive the full 60-second (9000px) journey.
-
-## Controls
-
-- **Letter keys** — Type the current word.
-- **Backspace** — Delete the last typed letter.
-- **Escape** — Clear your typing.
 - **At the hatch** — Type each of the three displayed words and press Enter to submit. A wrong submission costs one lockpick.
 
 ## Health System & States
@@ -71,19 +64,18 @@ Score gains pop up as floating `+points` text above the cleared obstacle.
 
 ## Project Structure
 
-```
 Run4Life/
-├── index.html      # Menu, game-over screen, and canvas shell
-├── style.css       # Menu / game-over UI, animated menu road & sprites
-├── game.js         # Entire game: config, classes, loop, rendering
-├── fonts/          # Symtext.ttf (obstacle words + menu title)
+├── index.html # Menu, game-over screen, and canvas shell
+├── style.css # Menu / game-over UI, animated menu road & sprites
+├── game.js # Entire game: config, classes, loop, rendering
+├── fonts/ # Symtext.ttf (obstacle words + menu title)
 └── sprites/
-    ├── Character-Sprites/   # Runner (run/jump/slide × 4 health states), chaser
-    ├── Maps/                # Sky/background image
-    ├── Meter-Sprites/       # Journey progress bar + head icons
-    ├── Obstacles/           # barrier, stop-sign, cone
-    └── Others/              # Word label background
-```
+├── Character-Sprites/ # Runner (run/jump/slide × 4 health states), chaser
+├── Maps/ # Sky/background image
+├── Meter-Sprites/ # Journey progress bar + head icons
+├── Obstacles/ # barrier, stop-sign, cone
+└── Others/ # Word label background
+
 
 ## Code Overview (`game.js`, ~1800 lines)
 
@@ -126,8 +118,6 @@ Open `index.html` in any modern browser — no build step required.
 
 ## Features to Implement
 
-- [x] **Main Menu:** Animated menu with a "PLAY" button, scrolling road with runner/chaser sprites, and toggleable menu music (WebAudio).
-- [x] **Death Screen UI:** Custom HTML/CSS game-over overlay with the loss reason, plus MAIN MENU / TRY AGAIN buttons.
 - [x] **Main Menu:** Animated menu with a "PLAY" button, scrolling road with runner/chaser sprites, and toggleable menu music (WebAudio).
 - [x] **Death Screen UI:** Custom HTML/CSS game-over overlay with the loss reason, plus MAIN MENU / TRY AGAIN buttons.
 - [ ] **Unlockable Maps:** Inside the "PLAY" button, add unlockable maps based on the player's highest distance/high score.
