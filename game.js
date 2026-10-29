@@ -3,7 +3,6 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = true;
-const inputEl = document.getElementById('input');  
 const mainMenuEl = document.getElementById('mainMenu');
 const playButton = document.getElementById('playButton');
 const menuMusicButton = document.getElementById('menuMusic');
@@ -268,15 +267,13 @@ wordBgImage.src = 'sprites/Others/word-bg.png';
 
 // Journey
 const JOURNEY_DURATION = 60;                     // seconds
-const JOURNEY_DISTANCE = JOURNEY_DURATION * 150;  // 18000px
+const JOURNEY_DISTANCE = JOURNEY_DURATION * 150;  // 9000px (150px travelled per second)
 
-// Meter (horizontal bar at the top of the screen)
+// Meter (horizontal journey bar near the bottom of the screen)
 const METER_BOTTOM_MARGIN = 50; 
 const ICON_SIZE = 32;   
 const METER_MARGIN_X = 60;
 const METER_HEIGHT = 12;
-const METER_MARKER_WIDTH = 12;
-const METER_MARKER_HEIGHT = 24;
 
 // Hatch — position relative to the runner's start
 const HATCH_OFFSET_FROM_RUNNER = JOURNEY_DISTANCE;
@@ -355,6 +352,16 @@ const WORLD_SPEED = 150;
 //DEFAULT ENTITY SIZE
 const ENTITY_WIDTH = 30;
 const ENTITY_HEIGHT = 50; 
+
+// -- Runner sprite / hitbox --
+// Shared by Runner.draw() and getRunnerBounds() so the drawn sprite and the
+// collision box can never drift apart.
+const RUNNER_SPRITE_SCALE = 2.0;
+const RUNNER_SLIDE_STRETCH_X = 1.5;
+const RUNNER_SLIDE_STRETCH_Y = 0.8;
+// Keeps the standing/jumping hitbox slightly smaller than the sprite.
+// 0.52 * 2.0 = 1.04, the effective footprint the game was tuned around.
+const RUNNER_HITBOX_INSET = 0.52;
 
 // -- Chaser Size -- 
 const CHASER_WIDTH = 50;
@@ -528,12 +535,8 @@ class Runner extends Entity {
     const isJumping = this.jump.active;
     const isSliding = this.slide.active;
 
-    const SPRITE_SCALE = 2.0;
-    const SLIDE_STRETCH_X = 1.5;
-    const SLIDE_STRETCH_Y = 0.8;
-
-    const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
-    const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
+    const spriteW = ENTITY_WIDTH * RUNNER_SPRITE_SCALE * (isSliding ? RUNNER_SLIDE_STRETCH_X : 1);
+    const spriteH = ENTITY_HEIGHT * RUNNER_SPRITE_SCALE * (isSliding ? RUNNER_SLIDE_STRETCH_Y : 1);
     const spriteX = this.x + (this.width - spriteW) / 2;
     const spriteY = this.y + this.height - spriteH + this.jump.yOffset;
 
@@ -776,44 +779,14 @@ class Obstacle extends Entity {
       if (sprite && sprite.complete && sprite.naturalWidth > 0) {
         ctx.drawImage(sprite, this.x, this.y, this.width, this.height);
       }
-
-      // Placeholder rectangle (uncomment if you want the tint back)
-      // ctx.globalAlpha = 0.4;
-      // ctx.fillStyle = this.cleared ? '#7a3d00' : '#f80';
-      // ctx.fillRect(this.x, this.y, this.width, this.height);
-      // ctx.globalAlpha = 1.0;
     }
 
     drawObstacleWord(this);
   }
 }
-// const runner = {
-//   x: canvas.width / 2 - ENTITY_WIDTH / 2,
-//   y: canvas.height / 2 - ENTITY_HEIGHT / 2,
-//   width: ENTITY_WIDTH,
-//   height: ENTITY_HEIGHT,
-// };
 const runner = new Runner(0, 0);
 
 const chaser = new Chaser(-CHASER_WIDTH / 2, 0);
-
-// const chaserJump = {
-//   active: false,
-//   time: 0,
-//   duration: JUMP_DURATION,
-//   height: JUMP_HEIGHT,
-//   yOffset: 0,
-//   targetId: null,
-// };
-
-// const chaserSlide = {
-//   active: false,
-//   time: 0,
-//   duration: SLIDE_DURATION,
-//   height: ENTITY_HEIGHT,
-//   width: ENTITY_WIDTH,
-//   targetId: null,
-// };
 
 const WORD_POOLS = {
   easy: [
@@ -832,7 +805,7 @@ const WORD_POOLS = {
     'overboard', 'trembling', 'frightened', 'accelerate', 'overcoming',
     'synchronize', 'bewildered', 'complicated', 'transcended', 'unshaken',
     'relentless', 'illuminated', 'disasterous', 'uncovering', 'persistent',
-    'networking', 'algorithm'
+    'networking', 'algorithm' 
   ],
 };
 
@@ -1004,8 +977,7 @@ function getWorldSpeed() {
 }
 
 function getSpawnInterval() {
-  const distanceTraveled = getdistanceTraveledScore();
-  if (distanceTraveled >= WORD_TIER_3_DISTAMCE) return SPAWN_INTERVAL_TIER_3;
+  if (distanceTraveled >= WORD_TIER_3_DISTANCE) return SPAWN_INTERVAL_TIER_3;
   if (distanceTraveled >= WORD_TIER_2_DISTANCE) return SPAWN_INTERVAL_TIER_2;
   return spawnInterval;
 }
@@ -1138,21 +1110,10 @@ function getChaserY() {
 }
 
 function getRunnerBounds() {
-  const SPRITE_SCALE = 1.3;
-  const SLIDE_STRETCH_X = 1.4;   // must match your draw code
-  const HITBOX_INSET = 0.8;      // hitbox is 80% of sprite size
-
-  // Compute sprite footprint (mirrors the draw code exactly)
   const isSliding = runner.slide.active;
 
-    // const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
-    // const spriteH = ENTITY_HEIGHT * SPRITE_SCALE;
-  const spriteW = (isSliding ? runner.slide.width : ENTITY_WIDTH) * SPRITE_SCALE;
-  const spriteH = (isSliding ? runner.slide.height : ENTITY_HEIGHT) * SPRITE_SCALE;
-  const spriteX = runner.x + (runner.width - spriteW) / 2;
-  const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
-
-  // Slide — return the sprite footprint, or a slightly inset version
+  // Slide — use the dynamic squash box so the runner can fit under floating
+  // obstacles. This is intentionally smaller than the stretched slide sprite.
   if (isSliding) {
     const w = runner.slide.width;
     const h = runner.slide.height;
@@ -1164,23 +1125,29 @@ function getRunnerBounds() {
     };
   }
 
+  // Standing / jumping — mirror Runner.draw()'s footprint using the shared
+  // sprite-scale constants.
+  const spriteW = ENTITY_WIDTH * RUNNER_SPRITE_SCALE;
+  const spriteH = ENTITY_HEIGHT * RUNNER_SPRITE_SCALE;
+  const spriteX = runner.x + (runner.width - spriteW) / 2;
+  const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
+
   // Jump — shrink toward a cube at the peak
   if (runner.jump.active) {
     const factor = getJumpShrinkFactor();
-    const w = spriteW * HITBOX_INSET * factor;
-    const h = spriteH * HITBOX_INSET * factor;
+    const w = spriteW * RUNNER_HITBOX_INSET * factor;
+    const h = spriteH * RUNNER_HITBOX_INSET * factor;
     return {
       x: spriteX + (spriteW - w) / 2,
-      y: spriteY + (spriteH - h) / 2,   // ← center vertically instead of bottom
+      y: spriteY + (spriteH - h) / 2,   // center vertically
       width: w,
       height: h,
     };
-    
   }
 
   // Standing
-  const w = spriteW * HITBOX_INSET;
-  const h = spriteH * HITBOX_INSET;
+  const w = spriteW * RUNNER_HITBOX_INSET;
+  const h = spriteH * RUNNER_HITBOX_INSET;
   return {
     x: spriteX + (spriteW - w) / 2,
     y: spriteY + (spriteH - h),
@@ -1484,7 +1451,8 @@ function drawObstacleWord(o) {
 
   const FONT_SIZE = 23;
   const LETTER_KERN = 2;
-  const FONT = `${FONT_SIZE}px Symtext`;
+  // Must match the @font-face family name declared in style.css.
+  const FONT = `${FONT_SIZE}px 'GameMode', monospace`;
 
   ctx.font = FONT;
   ctx.textAlign = 'left';
@@ -1655,7 +1623,7 @@ function update(delta, elapsedTime = delta) {
   // --- Spawn timer ---
   if (!isHatchSequence) {
     spawnTimer += delta;
-    if (spawnTimer >= spawnInterval) {
+    if (spawnTimer >= getSpawnInterval()) {
       spawnTimer = 0;
       spawnObstacle();
     }
@@ -1692,10 +1660,6 @@ function update(delta, elapsedTime = delta) {
     lives = 0; // Wipe lives
     gameOver('The chaser caught you!');
   }
-
-  // if (rectsOverlap(runner, chaser)) {
-  //   gameOver('The chaser caught you!');
-  // }
 }
 
 function gameOver(reason, title = 'YOU DIED') {
@@ -1764,57 +1728,11 @@ function draw() {
   drawFloor();
   drawMeter();
 
-// Runner
-const runnerH = runner.slide.active ? runner.slide.height : runner.height;
-const runnerW = runner.slide.active ? runner.slide.width : runner.width;
-const runnerX = runner.x - (runnerW - runner.width) / 2;
-const runnerY = runner.y + (runner.height - runnerH) + runner.jump.yOffset;
+  // Runner
+  runner.draw(ctx);
 
-  // // Debug reference rectangle (behind) — remove after tuning
-// const dbg = getRunnerBounds();
-// ctx.fillStyle = '#4f4';
-// ctx.fillRect(dbg.x, dbg.y, dbg.width, dbg.height);
-// ctx.strokeStyle = '#2a2';
-// ctx.lineWidth = 2;
-// ctx.strokeRect(dbg.x, dbg.y, dbg.width, dbg.height);
-
-//Runner sheet
-runner.draw(ctx);
-
-// Implementing sprite sheet using Javascript
-// const SPRITE_SCALE = 2.0;
-// const SLIDE_STRETCH_X = 1.5;
-// const SLIDE_STRETCH_Y = 0.8;
-
-// const isJumping = runner.jump.active;
-// const isSliding = runner.slide.active;
-
-// const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
-// const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
-// const spriteX = runner.x + (runner.width - spriteW) / 2;
-// const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
-
-// const activeSheet = isSliding ? slideSheet : isJumping ? jumpSheet : runSheet;
-// const activeFrameW = isSliding ? SLIDE_FRAME_W : isJumping ? JUMP_FRAME_W : RUN_FRAME_W;
-// const activeFrameH = isSliding ? SLIDE_FRAME_H : isJumping ? JUMP_FRAME_H : RUN_FRAME_H;
-
-// if (activeSheet.complete && activeSheet.naturalWidth > 0) {
-//   const sx = runner.anim.frame * activeFrameW;
-
-//   ctx.drawImage(
-//     activeSheet,
-//     sx, 0, activeFrameW, activeFrameH,
-//     spriteX, spriteY, spriteW, spriteH
-//   );
-// }
-
-// Chaser
-const chaserH = chaser.slide.active ? chaser.slide.height : chaser.height;
-const chaserW = chaser.slide.active ? chaser.slide.width : chaser.width;
-const chaserX = chaser.x - (chaserW - chaser.width) / 2;
-const chaserY = chaser.y + (chaser.height - chaserH);
-
-chaser.draw(ctx);
+  // Chaser
+  chaser.draw(ctx);
 
 obstacles.forEach(o => o.draw(ctx));
 if (hatchState !== 'inactive') drawHatch();
@@ -1924,16 +1842,6 @@ if (meterBarImage.complete && meterBarImage.naturalWidth > 0) {
   drawMeterIcon(hatchHeadImage, hatchMeterX, iconY, '#4bc9f0');
 }
 
-function drawMarker(x, color) {
-  const meterY = METER_MARGIN_TOP + METER_MARKER_HEIGHT / 2;
-  ctx.fillStyle = color;
-  ctx.fillRect(
-    x - METER_MARKER_WIDTH / 2,
-    meterY - METER_MARKER_HEIGHT / 2,
-    METER_MARKER_WIDTH,
-    METER_MARKER_HEIGHT
-  );
-}
 function drawMeterIcon(image, centerX, topY, fallbackColor) {
   const x = centerX - ICON_SIZE / 2;
 
@@ -2011,8 +1919,7 @@ function spawnObstacle() {
     );
     obstacle.id = nextObstacleId++;
     obstacles.push(obstacle);
-    console.log('Pushed obstacle. Total:', obstacles.length);
-    }
+  }
 }
 function resetGame() {
 
@@ -2058,8 +1965,6 @@ function resetGame() {
   runner.anim.timer = 0;
 
   chaser.jump.active = false;
-  chaser.jump.pending = false;
-  chaser.jump.pendingTime = 0;
   chaser.jump.time = 0;
   chaser.jump.yOffset = 0;
   chaser.jump.targetId = null;
