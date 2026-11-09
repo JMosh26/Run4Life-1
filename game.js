@@ -112,9 +112,12 @@ const PROP_VARIANTS = [
 const PROP_LAYER = {
   speed: 0.9,
   alpha: 1.0,
-  height: [250, 360],
-  maxWidth: 220,
-  gap: [260, 560],
+  // Taller than the tallest near-layer building (800) so the posts read as
+  // close foreground silhouettes, while staying within the visible sky height.
+  height: [820, 845],
+  maxWidth: 380,
+  // Sparse spacing: consecutive posts sit ~600-1100px apart (plus their width).
+  gap: [600, 1100],
 };
 
 BUILDING_VARIANTS.forEach(v => {
@@ -242,8 +245,72 @@ function drawBuildings() {
   for (const state of bgLayers) drawScenery(state);
 }
 
+// Wires attach along the crossarm. Real poles carry a bundle, so spread about
+// 15 lines across the bar (native 150x360, crop sx/sy = 0).
+const PROP_WIRE_COUNT = 15;
+const PROP_WIRE_ANCHORS = [];
+for (let i = 0; i < PROP_WIRE_COUNT; i++) {
+  const t = PROP_WIRE_COUNT === 1 ? 0.5 : i / (PROP_WIRE_COUNT - 1);
+  PROP_WIRE_ANCHORS.push({ x: 10 + t * 126, y: 24 });
+}
+
+// Map a native sprite point to screen space for a scaled prop item.
+function propAnchor(item, anchor) {
+  const sx = item.sx || 0;
+  const sy = item.sy || 0;
+  return {
+    x: item.x + ((anchor.x - sx) / item.sw) * item.width,
+    y: item.y + ((anchor.y - sy) / item.sh) * item.height,
+  };
+}
+
+function drawPropWires() {
+  if (!propLayer || propLayer.items.length < 2) return;
+
+  const unit = sceneScale();
+  const items = propLayer.items.slice().sort((a, b) => a.x - b.x);
+  const wireWidth = Math.max(1, 1.75 * unit);
+  const sag = 14 * unit;
+
+  ctx.save();
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = wireWidth;
+  ctx.lineCap = 'round';
+  ctx.globalAlpha = 1;
+
+  // Connect every consecutive pair of posts with a gently sagging line.
+  for (let i = 0; i < items.length - 1; i++) {
+    const a = items[i];
+    const b = items[i + 1];
+
+    // Skip spans entirely off-screen.
+    if (a.x + a.width < -40 * unit || b.x > canvas.width + 40 * unit) continue;
+
+    for (let j = 0; j < PROP_WIRE_ANCHORS.length; j++) {
+      const p = propAnchor(a, PROP_WIRE_ANCHORS[j]);
+      const q = propAnchor(b, PROP_WIRE_ANCHORS[j]);
+      const midX = (p.x + q.x) / 2;
+      // Fan the bundle: the leftmost line sags most and the rightmost least, so
+      // all 15 lines stay visually separate along the span.
+      const t = PROP_WIRE_COUNT === 1 ? 0.5 : j / (PROP_WIRE_COUNT - 1);
+      const sagScale = 8.5 - t * 8.0;
+      const midY = Math.max(p.y, q.y) + sag * sagScale;
+
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.quadraticCurveTo(midX, midY, q.x, q.y);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
 function drawProps() {
-  if (propLayer) drawScenery(propLayer);
+  if (!propLayer) return;
+  // Wires first so the posts overlay the attachment points.
+  drawPropWires();
+  drawScenery(propLayer);
 }
 
 /* Player Health System */

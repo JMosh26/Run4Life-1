@@ -249,7 +249,9 @@ The **near layer is deliberately oversized and tightly packed** so the runner fe
 
 Each building is picked with weighted randomness (small and mid buildings are more common; towers are rare), horizontally cropped to its opaque bounds (`sx/sy/sw/sh`) so it sits flush on the floor, and capped at a per-layer `maxWidth` so wide sprites cannot swallow the viewport.
 
-Street props (`Electric-Post.png`) use a separate, sparse layer in front of the buildings but behind the runner (`speed: 0.9`). Because `worldSpeed` already includes difficulty and health multipliers, and `delta` is slow-motion-scaled, the whole city inherits speed changes and slow motion automatically.
+Street props (`Electric-Post.png`) use a separate, sparse layer in front of the buildings but behind the runner (`speed: 0.9`, height `820–845` — taller than the tallest near-layer building so they read as close foreground silhouettes). Because `worldSpeed` already includes difficulty and health multipliers, and `delta` is slow-motion-scaled, the whole city inherits speed changes and slow motion automatically.
+
+`drawPropWires()` connects every consecutive pair of posts with a bundle of **15 black**, gently sagging quadratic curves spread evenly across the crossarm (`PROP_WIRE_COUNT`, `PROP_WIRE_ANCHORS` in native sprite coords). The lines fan out (leftmost deepest sag → rightmost shallowest) so they read as separate cables rather than one thick band. Wires are drawn before the posts so the poles cover the attachment points, and each span is skipped once it is off-screen.
 
 A fresh run calls `resetBuildings()` in `resetGame()` and again in `resizeCanvas()`, prefilling from off-screen left so the skyline is complete on the first frame.
 
@@ -391,7 +393,7 @@ All tuning values live near the top of `game.js`, grouped by system.
 | Health | `MAX_LIVES`, `HIT_COOLDOWN` | Damage rules and invincibility |
 | Hatch | `HATCH_WORD_COUNT`, `HATCH_LOCKPICK_COUNT`, `HATCH_CHASER_SLOW_FACTOR`, `HATCH_CHASER_FAILURE_FACTOR` | Endgame rules |
 | Runner visuals | `RUNNER_SPRITE_SCALE`, `RUNNER_SLIDE_STRETCH_X/Y`, `RUNNER_HITBOX_INSET` | Shared draw scale and hitbox size |
-| Parallax city | `BUILDING_VARIANTS`, `BUILDING_LAYERS`, `PROP_VARIANTS`, `PROP_LAYER` | Sprite crop boxes, layer speed/height/alpha/gap, prop spacing |
+| Parallax city | `BUILDING_VARIANTS`, `BUILDING_LAYERS`, `PROP_VARIANTS`, `PROP_LAYER`, `PROP_WIRE_COUNT`, `PROP_WIRE_ANCHORS` | Sprite crop boxes, layer speed/height/alpha/gap, prop spacing, post wire count/attachment points |
 | Effects | `WRONG_FLASH_DURATION`, `SHAKE_DURATION`, `SHAKE_INTENSITY` | Feedback intensity |
 
 > The hitbox is deliberately smaller than the drawn sprite. `RUNNER_HITBOX_INSET` is tuned so collisions feel fair while the sprite looks large.
