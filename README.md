@@ -21,6 +21,7 @@ No frameworks, no build step, no dependencies. Just open `index.html` and play.
   - [Difficulty progression](#6-difficulty-progression)
   - [Hatch endgame](#7-hatch-endgame)
   - [Scoring and records](#8-scoring-and-records)
+  - [Parallax city](#9-parallax-city)
 - [Project structure](#project-structure)
 - [Code architecture](#code-architecture)
 - [Configuration reference](#configuration-reference)
@@ -129,7 +130,7 @@ Obstacles are created by `spawnObstacle()` and move left with the world.
 | Stop sign | 50 × 50 |
 | Cone | 40 × 40 |
 
-**Floating obstacles (`type = 'slide'`)** are 50 × 120 blocks with legs. They unlock after **1,500 px** and then have a **50%** spawn chance.
+**Floating obstacles (`type = 'slide'`)** use `sliding-obstacle-1.png` or `sliding-obstacle-2.png`. The collision block is 50 × 120 px and floats **30 px** above the floor; the art includes the legs, so it is drawn 150 px tall (120 block + 30 gap) and its visible clearance matches the hitbox. They unlock after **1,500 px** and then have a **50%** spawn chance.
 
 When a word is completed, the action is queued (`awaitingJump` / `awaitingSlide`). `checkActionTriggers()` fires it when the obstacle reaches the trigger distance:
 
@@ -234,6 +235,24 @@ The codebase also maintains an internal points score (`score`, `distanceScore`) 
 
 This point total is **not displayed** on the HUD or game-over screen; survival time is the official score.
 
+### 9. Parallax city
+
+The backdrop is a three-layer parallax skyline built from `sprites/Building/*.png`. Buildings are **purely decorative** — they live in their own arrays, never in `obstacles[]`, so typing, collisions, and chaser AI ignore them.
+
+| Layer | Scroll factor | Height @1080p | Alpha | Gap range | Feel |
+|-------|-------------:|--------------:|------:|----------:|------|
+| Far | 0.18× | 110–230 px | 0.50 | 40–150 px | Distant skyline, hazy |
+| Mid | 0.42× | 240–470 px | 0.75 | 28–110 px | Mid-distance blocks |
+| Near | 0.72× | 430–800 px | 1.00 | 14–75 px | Large, dense, close |
+
+The **near layer is deliberately oversized and tightly packed** so the runner feels enclosed by the city rather than running past distant scenery. All sizes are authored against a 1920×1080 reference and multiplied by `sceneScale()` (`canvas.height / 1080`), so the skyline stays proportional at any resolution.
+
+Each building is picked with weighted randomness (small and mid buildings are more common; towers are rare), horizontally cropped to its opaque bounds (`sx/sy/sw/sh`) so it sits flush on the floor, and capped at a per-layer `maxWidth` so wide sprites cannot swallow the viewport.
+
+Street props (`Electric-Post.png`) use a separate, sparse layer in front of the buildings but behind the runner (`speed: 0.9`). Because `worldSpeed` already includes difficulty and health multipliers, and `delta` is slow-motion-scaled, the whole city inherits speed changes and slow motion automatically.
+
+A fresh run calls `resetBuildings()` in `resetGame()` and again in `resizeCanvas()`, prefilling from off-screen left so the skyline is complete on the first frame.
+
 ---
 
 ## Project structure
@@ -247,12 +266,22 @@ Run4Life-1/
 ├── fonts/
 │   └── Symtext.ttf             Game font (declared as "GameMode" in CSS)
 └── sprites/
+    ├── Building/               Parallax city sprites (7 buildings + props)
+    │   ├── Apartment-1.png
+    │   ├── Store-3.png
+    │   ├── Short_Building-4.png
+    │   ├── Short_Building-5.png
+    │   ├── Short_Building-6.png
+    │   ├── Short_Building-7.png
+    │   ├── Tall_Building-2.png
+    │   └── Objects/
+    │       └── Electric-Post.png
     ├── Character-Sprites/      Runner run/jump/slide (states 1–4), chaser
     ├── Maps/
     │   ├── Map1.png            Sky/background
     │   └── Building.png        Reserved / unused
     ├── Meter-Sprites/          Journey bar + head icons
-    ├── Obstacles/              Barrier, stop sign, cone
+    ├── Obstacles/              Barrier, stop sign, cone, sliding-obstacle-1/2
     └── Others/
         ├── word-bg.png         Background behind obstacle words
         ├── hud-background.png  Survival HUD background
@@ -295,6 +324,7 @@ requestAnimationFrame(gameLoop)
   └── update(scaledDelta, realDelta)
         ├── advance survival time and distance
         ├── start the hatch at 9,000 px
+        ├── scroll the parallax city (buildings + props)
         ├── update runner + chaser + obstacles
         ├── spawn obstacles (tier-based interval)
         ├── pick the typing target
@@ -304,6 +334,7 @@ requestAnimationFrame(gameLoop)
         └── tick visual effects (flash, shake, cooldown, popups)
   └── draw()
         ├── sky background + camera shake
+        ├── parallax city (far → mid → near → props)
         ├── floor + journey meter
         ├── runner, chaser, obstacles, hatch
         ├── score popups
@@ -325,6 +356,9 @@ requestAnimationFrame(gameLoop)
 | `getRunnerBounds()` / `getChaserBounds()` | Dynamic collision boxes |
 | `getJumpDurationForDistance()` / `getSlideDurationForDistance()` | Distance-matched animation lengths |
 | `spawnObstacle()` | Creates a ground or floating obstacle |
+| `spawnScenery()` / `pickWeightedVariant()` | Spawns and weight-picks parallax buildings and props |
+| `updateBuildings()` / `resetBuildings()` | Scrolls and prefills the parallax city |
+| `drawBuildings()` / `drawProps()` | Renders the city layers behind the gameplay |
 | `resetGame()` | Restores all mutable state for a fresh run |
 | `resizeCanvas()` | Matches the canvas to the window and repositions entities |
 
@@ -349,6 +383,7 @@ All tuning values live near the top of `game.js`, grouped by system.
 | World | `WORLD_SPEED`, `WORLD_SPEED_TIER_2/3` | Scroll speed per difficulty tier |
 | Words | `WORD_TIER_2_DISTANCE`, `WORD_TIER_3_DISTANCE`, `WORD_POOLS` | When each word list unlocks |
 | Spawning | `spawnInterval`, `SPAWN_INTERVAL_TIER_2/3`, `SLIDE_UNLOCK_DISTANCE`, `SLIDE_CHANCE_AFTER_UNLOCK` | Obstacle frequency and type mix |
+| Slide obstacles | `SLIDE_OBSTACLE_WIDTH/HEIGHT/GAP`, `SLIDE_OBSTACLE_TOTAL_HEIGHT`, `SLIDE_OBSTACLE_VARIANTS` | Overhead barrier hitbox, floor clearance, and artwork |
 | Slow motion | `SLOWMO_DISTANCE`, `SLOWMO_FACTOR_MIN/MAX`, `SLOWMO_WORD_LENGTH_MIN/MAX` | How strongly time slows |
 | Jump | `JUMP_DURATION`, `JUMP_HEIGHT`, `JUMP_TRIGGER_DISTANCE`, `JUMP_HITBOX_HEIGHT` | Jump feel and hitbox |
 | Slide | `SLIDE_DURATION`, `SLIDE_HEIGHT`, `SLIDE_WIDTH`, `SLIDE_TRIGGER_DISTANCE` | Slide feel and hitbox |
@@ -356,6 +391,7 @@ All tuning values live near the top of `game.js`, grouped by system.
 | Health | `MAX_LIVES`, `HIT_COOLDOWN` | Damage rules and invincibility |
 | Hatch | `HATCH_WORD_COUNT`, `HATCH_LOCKPICK_COUNT`, `HATCH_CHASER_SLOW_FACTOR`, `HATCH_CHASER_FAILURE_FACTOR` | Endgame rules |
 | Runner visuals | `RUNNER_SPRITE_SCALE`, `RUNNER_SLIDE_STRETCH_X/Y`, `RUNNER_HITBOX_INSET` | Shared draw scale and hitbox size |
+| Parallax city | `BUILDING_VARIANTS`, `BUILDING_LAYERS`, `PROP_VARIANTS`, `PROP_LAYER` | Sprite crop boxes, layer speed/height/alpha/gap, prop spacing |
 | Effects | `WRONG_FLASH_DURATION`, `SHAKE_DURATION`, `SHAKE_INTENSITY` | Feedback intensity |
 
 > The hitbox is deliberately smaller than the drawn sprite. `RUNNER_HITBOX_INSET` is tuned so collisions feel fair while the sprite looks large.
@@ -375,9 +411,22 @@ All character sheets are horizontal strips, read left-to-right.
 | Chaser jump | 8 | 300 × 300 | `chaser-jump.png` |
 | Chaser slide | 16 | 300 × 300 | `chaser-slide.png` |
 
-Obstacle sprites are single images (`obstacle-1/2/3.png`). The journey meter uses `meter-bar.png` plus the four runner head icons, the chaser head, and the hatch icon.
+Obstacle sprites are single images (`obstacle-1/2/3.png`). Slide obstacles use `sliding-obstacle-1.png` and `sliding-obstacle-2.png` (native 150 × 360, cropped to opaque bounds and drawn 150 px tall so the legs reach the floor). The journey meter uses `meter-bar.png` plus the four runner head icons, the chaser head, and the hatch icon.
 
 The main menu reuses `runner-run-4.png` and `chaser-run.png` as CSS `steps()` sprite animations.
+
+Background buildings are single painted PNGs with alpha, not sprite sheets. Their native sizes are recorded in `BUILDING_VARIANTS` alongside the opaque crop box used for rendering:
+
+| File | Native size |
+|------|------------:|
+| `Apartment-1.png` | 192 × 256 |
+| `Store-3.png` | 365 × 288 |
+| `Short_Building-4.png` | 360 × 360 |
+| `Short_Building-5.png` | 500 × 400 |
+| `Short_Building-6.png` | 500 × 400 |
+| `Short_Building-7.png` | 500 × 450 |
+| `Tall_Building-2.png` | 288 × 645 |
+| `Objects/Electric-Post.png` | 150 × 360 (prop) |
 
 ---
 
@@ -386,7 +435,7 @@ The main menu reuses `runner-run-4.png` and `chaser-run.png` as CSS `steps()` sp
 - **No build step.** Edit a file and refresh the browser.
 - **State lives in module-level variables** in `game.js`; `resetGame()` is the single place that restores them between runs.
 - **`localStorage` is per-origin.** Running from a local server and from `file://` will use different saved best times.
-- **Rendering order matters:** sky → floor/meter → entities → hatch → popups → full-screen tints.
+- **Rendering order matters:** sky → parallax city (far/mid/near/props) → floor/meter → entities → hatch → popups → full-screen tints.
 - **The journey meter is at the bottom** of the screen (`METER_BOTTOM_MARGIN`), despite the old comment suggesting the top.
 - **Reserved constants:** `CHASER_STAGGER_DURATION`, `CHASER_STAGGER_FACTOR`, and the `chaser.staggerTime` path are currently unused (the chaser never staggers), and `HATCH_OFFSET_FROM_RUNNER` / `getHatchWorldX()` are left over from an earlier world-position hatch design. They can be removed or implemented later.
 - **No pause, touch, or gamepad support yet.**
@@ -398,6 +447,7 @@ The main menu reuses `runner-run-4.png` and `chaser-run.png` as CSS `steps()` sp
 - [x] Custom game-over screen with win/lose variants
 - [x] Hatch endgame with independent lockpicks
 - [x] Distance-based difficulty tiers and word pools
+- [x] Parallax city background with close, dense buildings and street props
 - [ ] Unlockable maps based on best distance/time
 - [ ] Damaged obstacle sprite variants at higher distances
 - [ ] Touch/mobile input

@@ -83,6 +83,169 @@ runnerSlideSheets[1].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or
 const skyImage = new Image();
 skyImage.src = 'sprites/Maps/Map1.png';
 
+// -- Background city (parallax buildings) --
+// These are painted/digital-art sprites, so keep smooth scaling enabled.
+// sx/sy/sw/sh crop away transparent padding so every building sits flush on the floor.
+const BUILDING_VARIANTS = [
+  { src: 'sprites/Building/Apartment-1.png',      sx: 1,  sy: 9,  sw: 191, sh: 247, weight: 5 },
+  { src: 'sprites/Building/Store-3.png',          sx: 10, sy: 38, sw: 345, sh: 250, weight: 4 },
+  { src: 'sprites/Building/Short_Building-4.png', sx: 0,  sy: 2,  sw: 357, sh: 358, weight: 4 },
+  { src: 'sprites/Building/Short_Building-5.png', sx: 10, sy: 10, sw: 478, sh: 379, weight: 3 },
+  { src: 'sprites/Building/Short_Building-6.png', sx: 14, sy: 59, sw: 476, sh: 341, weight: 3 },
+  { src: 'sprites/Building/Short_Building-7.png', sx: 38, sy: 21, sw: 423, sh: 429, weight: 3 },
+  { src: 'sprites/Building/Tall_Building-2.png',  sx: 15, sy: 5,  sw: 255, sh: 640, weight: 4 },
+];
+
+// Far -> near. Heights/widths are 1080p reference pixels, scaled by sceneScale().
+// The near layer is intentionally large and dense so the runner feels enclosed by the city.
+const BUILDING_LAYERS = [
+  { speed: 0.18, alpha: 0.50, height: [110, 230], maxWidth: 360, gap: [40, 150] },
+  { speed: 0.42, alpha: 0.75, height: [240, 470], maxWidth: 600, gap: [28, 110] },
+  { speed: 0.72, alpha: 1.00, height: [430, 800], maxWidth: 840, gap: [14, 75] },
+];
+
+// Street props sit in front of the buildings but behind the runner.
+const PROP_VARIANTS = [
+  { src: 'sprites/Building/Objects/Electric-Post.png', sx: 0, sy: 0, sw: 146, sh: 360, weight: 1 },
+];
+
+const PROP_LAYER = {
+  speed: 0.9,
+  alpha: 1.0,
+  height: [250, 360],
+  maxWidth: 220,
+  gap: [260, 560],
+};
+
+BUILDING_VARIANTS.forEach(v => {
+  v.image = new Image();
+  v.image.src = v.src;
+});
+PROP_VARIANTS.forEach(v => {
+  v.image = new Image();
+  v.image.src = v.src;
+});
+
+let bgLayers = [];
+let propLayer = null;
+
+function sceneScale() {
+  return canvas.height / 1080;
+}
+
+function pickWeightedVariant(variants, previousIndex) {
+  const total = variants.reduce((sum, v) => sum + v.weight, 0);
+  let roll = Math.random() * total;
+  let index = 0;
+  for (; index < variants.length; index++) {
+    roll -= variants[index].weight;
+    if (roll <= 0) break;
+  }
+  if (index >= variants.length) index = variants.length - 1;
+
+  // Avoid placing the same sprite twice in a row.
+  if (variants.length > 1 && index === previousIndex) {
+    index = (index + 1) % variants.length;
+  }
+  return index;
+}
+
+function spawnScenery(state, unit) {
+  const index = pickWeightedVariant(state.variants, state.lastVariant);
+  state.lastVariant = index;
+  const variant = state.variants[index];
+  const layer = state.layer;
+
+  const [minHeight, maxHeight] = layer.height;
+  let height = (minHeight + Math.random() * (maxHeight - minHeight)) * unit;
+  let width = (variant.sw / variant.sh) * height;
+
+  // Keep very wide buildings from swallowing the whole viewport.
+  const maxWidth = layer.maxWidth * unit;
+  if (width > maxWidth) {
+    height *= maxWidth / width;
+    width = maxWidth;
+  }
+
+  state.items.push({
+    image: variant.image,
+    sx: variant.sx,
+    sy: variant.sy,
+    sw: variant.sw,
+    sh: variant.sh,
+    x: state.nextX,
+    y: getFloorTop() - height,
+    width,
+    height,
+    alpha: layer.alpha,
+  });
+
+  const [minGap, maxGap] = layer.gap;
+  state.nextX += width + (minGap + Math.random() * (maxGap - minGap)) * unit;
+}
+
+function makeSceneryState(layer, variants, startX) {
+  return { layer, variants, items: [], nextX: startX, lastVariant: -1 };
+}
+
+function resetBuildings() {
+  const unit = sceneScale();
+  bgLayers = BUILDING_LAYERS.map(layer =>
+    makeSceneryState(layer, BUILDING_VARIANTS, -canvas.width * 0.25)
+  );
+  propLayer = makeSceneryState(PROP_LAYER, PROP_VARIANTS, -canvas.width * 0.1);
+
+  const prefill = state => {
+    let guard = 0;
+    while (state.nextX < canvas.width + 400 * unit && guard++ < 300) {
+      spawnScenery(state, unit);
+    }
+  };
+
+  bgLayers.forEach(prefill);
+  prefill(propLayer);
+}
+
+function updateScenery(state, delta, worldSpeed, unit) {
+  const scroll = worldSpeed * state.layer.speed * delta;
+  state.nextX -= scroll;
+
+  for (const item of state.items) item.x -= scroll;
+  state.items = state.items.filter(item => item.x + item.width > -200 * unit);
+
+  let guard = 0;
+  while (state.nextX < canvas.width + 400 * unit && guard++ < 80) {
+    spawnScenery(state, unit);
+  }
+}
+
+function updateBuildings(delta, worldSpeed) {
+  const unit = sceneScale();
+  for (const state of bgLayers) updateScenery(state, delta, worldSpeed, unit);
+  if (propLayer) updateScenery(propLayer, delta, worldSpeed, unit);
+}
+
+function drawScenery(state) {
+  for (const item of state.items) {
+    if (!item.image.complete || item.image.naturalWidth === 0) continue;
+    ctx.globalAlpha = item.alpha;
+    ctx.drawImage(
+      item.image,
+      item.sx, item.sy, item.sw, item.sh,
+      item.x, item.y, item.width, item.height
+    );
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBuildings() {
+  for (const state of bgLayers) drawScenery(state);
+}
+
+function drawProps() {
+  if (propLayer) drawScenery(propLayer);
+}
+
 /* Player Health System */
 const MAX_LIVES = 4;
 let lives = MAX_LIVES;
@@ -389,8 +552,23 @@ const SPAWN_INTERVAL_TIER_3 = 3.5; // even more space at tier 3
 const SLIDE_OBSTACLE_WIDTH = 50;
 const SLIDE_OBSTACLE_HEIGHT = 120;
 const SLIDE_OBSTACLE_GAP = 30;   // clearance between floor and block bottom
+const SLIDE_OBSTACLE_TOTAL_HEIGHT = SLIDE_OBSTACLE_HEIGHT + SLIDE_OBSTACLE_GAP;
 const SLIDE_UNLOCK_DISTANCE = 1500;
 const SLIDE_CHANCE_AFTER_UNLOCK = 0.5; 
+
+// Overhead-barrier sprites. The art includes the legs, so it is drawn from the
+// top of the block down to the floor (block 120 + floor gap 30 = 150 on screen).
+// Crop boxes strip transparent padding; the native leg/beam split maps to the
+// same ~30px clearance the hitbox uses.
+const SLIDE_OBSTACLE_VARIANTS = [
+  { src: 'sprites/Obstacles/sliding-obstacle-1.png', sx: 0, sy: 9,  sw: 150, sh: 351 },
+  { src: 'sprites/Obstacles/sliding-obstacle-2.png', sx: 3, sy: 11, sw: 146, sh: 349 },
+];
+
+SLIDE_OBSTACLE_VARIANTS.forEach(variant => {
+  variant.image = new Image();
+  variant.image.src = variant.src;
+});
 
 
 //Wrong letter feedback
@@ -755,22 +933,37 @@ class Obstacle extends Entity {
 
   draw(ctx) {
     if (this.type === 'slide') {
-      // Floating block placeholder
-      ctx.fillStyle = this.cleared ? '#7a3d00' : '#f80';
-      ctx.fillRect(this.x, this.y, this.width, this.height);
+      const variant = SLIDE_OBSTACLE_VARIANTS[this.variantIndex];
+      const sprite = variant && variant.image;
 
-      // Support legs
-      const legTop = this.y + this.height;
-      const legBottom = getFloorTop();
-      ctx.fillStyle = '#000';
+      if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+        // The art includes the legs, so draw it from the block top down to the floor.
+        const drawHeight = SLIDE_OBSTACLE_TOTAL_HEIGHT;
+        const drawWidth = drawHeight * (variant.sw / variant.sh);
+        const drawX = this.x + this.width / 2 - drawWidth / 2;
+        ctx.drawImage(
+          sprite,
+          variant.sx, variant.sy, variant.sw, variant.sh,
+          drawX, getFloorTop() - drawHeight, drawWidth, drawHeight
+        );
+      } else {
+        // Placeholder while the sprites load
+        ctx.fillStyle = this.cleared ? '#7a3d00' : '#f80';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
 
-      ctx.fillRect(this.x + 5, legTop, 6, legBottom - legTop);
-      ctx.fillRect(this.x + this.width - 11, legTop, 6, legBottom - legTop);
-      ctx.fillRect(this.x + 5, legTop + (legBottom - legTop) / 2, this.width - 10, 4);
+        // Support legs
+        const legTop = this.y + this.height;
+        const legBottom = getFloorTop();
+        ctx.fillStyle = '#000';
 
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(this.x, this.y, this.width, this.height);
+        ctx.fillRect(this.x + 5, legTop, 6, legBottom - legTop);
+        ctx.fillRect(this.x + this.width - 11, legTop, 6, legBottom - legTop);
+        ctx.fillRect(this.x + 5, legTop + (legBottom - legTop) / 2, this.width - 10, 4);
+
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+      }
     } else {
       const variant = OBSTACLE_VARIANTS[this.variantIndex];
       const sprite = variant.images[0];
@@ -1599,6 +1792,9 @@ function update(delta, elapsedTime = delta) {
     if (floorScroll <= -80) floorScroll = 0;
   }
 
+  // --- Parallax city ---
+  if (!isHatchSequence) updateBuildings(delta, worldSpeed);
+
   // --- Distance score ---
   if (!isHatchSequence) distanceScore += worldSpeed * delta * SCORE_PER_PIXEL;
 
@@ -1725,6 +1921,8 @@ function draw() {
   ctx.translate(offsetX, offsetY);
   }
 
+  drawBuildings();
+  drawProps();
   drawFloor();
   drawMeter();
 
@@ -1897,7 +2095,7 @@ function spawnObstacle() {
       obstacleH,
       word,
       'slide',
-      0   // no slide variant yet
+      Math.floor(Math.random() * SLIDE_OBSTACLE_VARIANTS.length)
     );
     obstacle.id = nextObstacleId++;
     obstacles.push(obstacle);
@@ -1980,6 +2178,7 @@ function resetGame() {
   chaser.slide.width = ENTITY_WIDTH;
   chaser.slide.targetId = null;
 
+  resetBuildings();
 }
 
 function resizeCanvas() {
@@ -1997,6 +2196,7 @@ function resizeCanvas() {
   }
 
   ctx.imageSmoothingEnabled = true;
+  resetBuildings();
 }
 
 document.fonts.ready.then(() => {
