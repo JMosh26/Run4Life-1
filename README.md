@@ -26,6 +26,7 @@ No frameworks, no build step, no dependencies. Just open `index.html` and play.
 - [Code architecture](#code-architecture)
 - [Configuration reference](#configuration-reference)
 - [Sprite sheets](#sprite-sheets)
+- [Changelog](#changelog)
 - [Development notes](#development-notes)
 
 ---
@@ -432,6 +433,29 @@ Background buildings are single painted PNGs with alpha, not sprite sheets. Thei
 | `Short_Building-7.png` | 500 × 450 |
 | `Tall_Building-2.png` | 288 × 645 |
 | `Objects/Electric-Post.png` | 150 × 360 (prop) |
+
+---
+
+## Changelog
+
+### 2026-11-09 — `883216d` (pushed to `Hatch_Sys`)
+
+**Electric posts and wires**
+- Added a sparse foreground prop layer using `sprites/Building/Objects/Electric-Post.png`.
+- Posts are **820–845 px** tall (`PROP_LAYER.height`), so every post is taller than the tallest near-layer building (800 px).
+- Post spacing widened to **600–1100 px** (`PROP_LAYER.gap`).
+- Every consecutive pair of posts is connected by **15 black wires** (`PROP_WIRE_COUNT`) attached across the crossarm (`PROP_WIRE_ANCHORS`), with fanned sag so they read as separate cables.
+
+**Slide-obstacle sprites**
+- Floating obstacles now use `sliding-obstacle-1.png` / `sliding-obstacle-2.png` instead of the drawn placeholder.
+- Opaque crops strip the transparent padding; the art is drawn `SLIDE_OBSTACLE_TOTAL_HEIGHT` (150 px) tall while the collision block stays `50 × 120` with 30 px floor clearance.
+
+**Last-life enrage / jumpscare**
+- Losing the **last life no longer shows the game-over screen immediately**.
+- `loseLife()` starts `startChaserEnrage()` instead: the chaser moves at **720 px/s** (`CHASER_SPEED_END × 6`), ignores obstacles/stagger, and repeatedly leaps at the runner.
+- The world freezes and a red pulse plays; the run ends **only** when the enraged chaser catches the runner.
+- The hatch **ESCAPED** win dialog is unchanged.
+- `resetGame()` clears the enrage state and restores the chaser's jump height.
 
 ---
 
