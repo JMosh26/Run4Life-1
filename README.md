@@ -85,7 +85,7 @@ Main menu ──PLAY──▶ Running ──9,000 px──▶ Hatch challenge
                        │                      ├── all 3 words correct ──▶ ESCAPED (win)
                        │                      └── 3 failed lockpicks ──▶ hatch drops, chaser at 2× speed
                        │
-                       └── lives = 0 or chaser catches you ──▶ YOU DIED
+                       └── lives = 0 ──▶ chaser enrages (600%) ──▶ caught ──▶ YOU DIED
 ```
 
 Both endings show the game-over dialog with the final survival time, the saved best time, and **NEW BEST!** when applicable. The dialog offers **MAIN MENU** and **TRY AGAIN**.
@@ -149,14 +149,16 @@ The runner has **4 lives** (`MAX_LIVES`). Each remaining life selects a sprite s
 | Minor injury | 3 | 90% | `runner-run-3` |
 | Injured | 2 | 80% | `runner-run-2` |
 | Critical | 1 | 70% | `runner-run-1` |
-| Dead | 0 | Game over | — |
+| Dead | 0 | 0% (world freezes) | — |
 
 Damage sources:
 
 - Typing a wrong letter.
 - Colliding with an obstacle.
 
-After taking damage, the runner gets **2 seconds** of invincibility (`HIT_COOLDOWN`), shown as a pulsing white outline and a shrinking cooldown bar. Contact with the chaser is an **instant game over**, regardless of remaining lives.
+After taking damage, the runner gets **2 seconds** of invincibility (`HIT_COOLDOWN`), shown as a pulsing white outline and a shrinking cooldown bar.
+
+Losing the **last life does not show the game-over screen immediately**. Instead the chaser enrages: it ignores obstacles and stagger, jumps to **600% of its top speed** (`CHASER_SPEED_END × CHASER_ENRAGE_SPEED_MULTIPLIER` = 720 px/s), and repeatedly leaps at the runner while the world freezes and the screen pulses red. The run ends only when the enraged chaser actually catches the runner. Contact with the chaser at any time is still an instant game over.
 
 Jump and slide sprite sheets only exist for state 4. States 1–3 fall back to `runner-slide-4.png`; jump sheets exist for all four states.
 
@@ -173,6 +175,7 @@ Behavior:
 - Stops **130 px** behind any cleared obstacle it has not yet traversed, drifting at **70%** of world speed while blocked.
 - Jumps or slides over cleared obstacles when they are **50 px** away.
 - During the hatch sequence it moves at **30%** speed; after a failed hatch it moves at **200%** speed.
+- When the runner's last life is lost it **enrages**: **600% of its top speed** (720 px/s), continuous jump lunges (`CHASER_ENRAGE_JUMP_DURATION`), ignores obstacles/stagger, and runs on real time so slow motion cannot delay the kill.
 
 Touching the runner ends the run immediately.
 
@@ -389,7 +392,7 @@ All tuning values live near the top of `game.js`, grouped by system.
 | Slow motion | `SLOWMO_DISTANCE`, `SLOWMO_FACTOR_MIN/MAX`, `SLOWMO_WORD_LENGTH_MIN/MAX` | How strongly time slows |
 | Jump | `JUMP_DURATION`, `JUMP_HEIGHT`, `JUMP_TRIGGER_DISTANCE`, `JUMP_HITBOX_HEIGHT` | Jump feel and hitbox |
 | Slide | `SLIDE_DURATION`, `SLIDE_HEIGHT`, `SLIDE_WIDTH`, `SLIDE_TRIGGER_DISTANCE` | Slide feel and hitbox |
-| Chaser | `CHASER_SPEED_START/END`, `CHASER_STOP_DISTANCE`, `CHASER_JUMP_CUE` | Pursuit difficulty |
+| Chaser | `CHASER_SPEED_START/END`, `CHASER_STOP_DISTANCE`, `CHASER_JUMP_CUE`, `CHASER_ENRAGE_SPEED_MULTIPLIER`, `CHASER_ENRAGE_JUMP_HEIGHT/DURATION` | Pursuit difficulty and final-life jumpscare |
 | Health | `MAX_LIVES`, `HIT_COOLDOWN` | Damage rules and invincibility |
 | Hatch | `HATCH_WORD_COUNT`, `HATCH_LOCKPICK_COUNT`, `HATCH_CHASER_SLOW_FACTOR`, `HATCH_CHASER_FAILURE_FACTOR` | Endgame rules |
 | Runner visuals | `RUNNER_SPRITE_SCALE`, `RUNNER_SLIDE_STRETCH_X/Y`, `RUNNER_HITBOX_INSET` | Shared draw scale and hitbox size |

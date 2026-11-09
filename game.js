@@ -576,6 +576,13 @@ const CHASER_STAGGER_DURATION = 1.2; // how long the slowdown lasts
 const CHASER_STAGGER_FACTOR = 0.1;   // 0.1 = chaser moves at 10% speed
 const CHASER_BLOCK_DRIFT = 0.7;   // 0.6 = drifts at 60% of floor speed when blocked
 
+//CHASER ENRAGE (last life lost — jumpscare kill)
+const CHASER_ENRAGE_SPEED_MULTIPLIER = 6.0;  // 600% speed
+const CHASER_ENRAGE_JUMP_HEIGHT = 170;
+const CHASER_ENRAGE_JUMP_DURATION = 0.45;
+let chaserEnraged = false;
+let chaserEnrageTime = 0;
+
 //WORLD SPEED
 const WORLD_SPEED = 150;
 
@@ -902,19 +909,22 @@ update(delta, runner, obstacles, worldSpeed) {
   const dist = Math.hypot(dx, dy);
 
   // --- Blocked check ---
+  // An enraged chaser ignores obstacles entirely; nothing stops the final lunge.
   let blockedByObstacle = false;
-  for (const o of obstacles) {
-    if (!o.chaserDelay) continue;
-    if (o.chaserJumped || o.chaserSlid) continue;   // ← skip both
+  if (!chaserEnraged) {
+    for (const o of obstacles) {
+      if (!o.chaserDelay) continue;
+      if (o.chaserJumped || o.chaserSlid) continue;   // ← skip both
 
-    const obstacleCenterX = o.x + o.width / 2;
-    const gap = obstacleCenterX - chaserCX;
+      const obstacleCenterX = o.x + o.width / 2;
+      const gap = obstacleCenterX - chaserCX;
 
-    if (gap > 0 && gap < CHASER_STOP_DISTANCE) {
-      const isTargeted = (this.jump.targetId === o.id) || (this.slide.targetId === o.id);
-      if (!isTargeted) {
-        blockedByObstacle = true;
-        break;
+      if (gap > 0 && gap < CHASER_STOP_DISTANCE) {
+        const isTargeted = (this.jump.targetId === o.id) || (this.slide.targetId === o.id);
+        if (!isTargeted) {
+          blockedByObstacle = true;
+          break;
+        }
       }
     }
   }
@@ -923,12 +933,16 @@ update(delta, runner, obstacles, worldSpeed) {
 
   // --- Speed ---
   let chaserSpeed = getChaserSpeed();
-  if (hatchState === 'entering' || hatchState === 'active') {
+  if (chaserEnraged) {
+    // 600% of the chaser's top speed, so the final lunge is always fast enough
+    // to read as a jumpscare even when the chaser is still far from the runner.
+    chaserSpeed = CHASER_SPEED_END * CHASER_ENRAGE_SPEED_MULTIPLIER;
+  } else if (hatchState === 'entering' || hatchState === 'active') {
     chaserSpeed *= HATCH_CHASER_SLOW_FACTOR;
   } else if (hatchState === 'failed') {
     chaserSpeed *= HATCH_CHASER_FAILURE_FACTOR;
   }
-  if (this.staggerTime > 0) {
+  if (!chaserEnraged && this.staggerTime > 0) {
     chaserSpeed *= CHASER_STAGGER_FACTOR;
   }
 
@@ -1306,9 +1320,39 @@ function loseLife() {
   runner.anim.frame = 0;
   runner.anim.timer = 0;
 
+  // Last life gone: do NOT end the run yet. Enrage the chaser and let it
+  // lunge at the runner; the game over fires only when it catches them.
   if (lives <= 0) {
-    gameOver('You took too much damage!');
+    startChaserEnrage();
   }
+}
+
+function startChaserLunge() {
+  chaser.jump.active = true;
+  chaser.jump.time = 0;
+  chaser.jump.duration = CHASER_ENRAGE_JUMP_DURATION;
+  chaser.jump.height = CHASER_ENRAGE_JUMP_HEIGHT;
+  chaser.jump.targetId = null;
+  chaser.anim.frame = 0;
+  chaser.anim.timer = 0;
+}
+
+function startChaserEnrage() {
+  if (chaserEnraged) return;
+
+  chaserEnraged = true;
+  chaserEnrageTime = 0;
+
+  // Cancel any obstacle-response animation and ignore the stagger so the
+  // chaser can commit to the kill.
+  chaser.staggerTime = 0;
+  chaser.slide.active = false;
+  chaser.slide.time = 0;
+  chaser.slide.height = CHASER_HEIGHT;
+  chaser.slide.width = CHASER_WIDTH;
+  chaser.slide.targetId = null;
+
+  startChaserLunge();
 }
 
 
@@ -1851,7 +1895,10 @@ function update(delta, elapsedTime = delta) {
   runner.update(delta);
 
   // -- Chaser Update -- //
-  chaser.update(delta, runner, isHatchSequence ? [] : obstacles, worldSpeed);
+  // During the final jumpscare, use real time so slow motion cannot dilute it.
+  if (chaserEnraged) chaserEnrageTime += elapsedTime;
+  const chaserDelta = chaserEnraged ? elapsedTime : delta;
+  chaser.update(chaserDelta, runner, isHatchSequence ? [] : obstacles, worldSpeed);
 
   // --- Floor scroll ---
   if (!isHatchSequence) {
@@ -1884,7 +1931,7 @@ function update(delta, elapsedTime = delta) {
   if (!isHatchSequence) pickTargetObstacle();
 
   // --- Spawn timer ---
-  if (!isHatchSequence) {
+  if (!isHatchSequence && !chaserEnraged) {
     spawnTimer += delta;
     if (spawnTimer >= getSpawnInterval()) {
       spawnTimer = 0;
@@ -1893,18 +1940,25 @@ function update(delta, elapsedTime = delta) {
   }
   if (!isHatchSequence) {
     checkActionTriggers();
-    checkChaserAction();
+    if (!chaserEnraged) checkChaserAction();
   }
   updateJump(runner.jump, delta);
   updateSlide(runner.slide, runner, delta);
   
 
   // Handle the chaser's delayed jump
-  const chaserJumpDelta = chaser.staggerTime > 0
-  ? delta * CHASER_STAGGER_FACTOR
-  : delta;
+  const chaserJumpDelta = chaserEnraged
+  ? elapsedTime
+  : chaser.staggerTime > 0
+    ? delta * CHASER_STAGGER_FACTOR
+    : delta;
   updateJump(chaser.jump, chaserJumpDelta);
   updateSlide(chaser.slide, chaser, chaserJumpDelta);
+
+  // Keep the enraged chaser leaping until it reaches the runner.
+  if (chaserEnraged && !chaser.jump.active) {
+    startChaserLunge();
+  }
 
     // --- Collisions ---
   // --- Runner collision (uses visual bounds) ---
@@ -2022,6 +2076,13 @@ if (hatchState !== 'inactive') drawHatch();
   const alpha = (wrongFlashTime / WRONG_FLASH_DURATION) * 0.35;
   ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Jumpscare pulse while the enraged chaser closes in.
+  if (chaserEnraged) {
+    const pulse = 0.10 + Math.sin(chaserEnrageTime * 30) * 0.06;
+    ctx.fillStyle = `rgba(255, 0, 0, ${Math.max(0, pulse)})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
     // --- Hit Cooldown Visual ---
   if (hitCooldownTime > 0) {
@@ -2220,6 +2281,8 @@ function resetGame() {
   spawnTimer = 0;
   lastTime = 0;
   chaser.staggerTime = 0;
+  chaserEnraged = false;
+  chaserEnrageTime = 0;
   score = 0;
   distanceScore = 0;
 
@@ -2232,6 +2295,7 @@ function resetGame() {
   chaser.jump.active = false;
   chaser.jump.time = 0;
   chaser.jump.yOffset = 0;
+  chaser.jump.height = JUMP_HEIGHT;
   chaser.jump.targetId = null;
 
   runner.slide.active = false;
