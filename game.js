@@ -3,10 +3,32 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = true;
-const inputEl = document.getElementById('input');  
-const PLAY_ASPECT = 16 / 9;     // width / height → portrait
-const PLAY_MAX_HEIGHT = 0.9;    // 90% of window height
-const PLAY_MAX_WIDTH = 0.6; 
+const mainMenuEl = document.getElementById('mainMenu');
+const playButton = document.getElementById('playButton');
+const menuMusicButton = document.getElementById('menuMusic');
+const gameOverEl = document.getElementById('gameOver');
+const gameOverTitleEl = document.getElementById('gameOverTitle');
+const gameOverReasonEl = document.getElementById('gameOverReason');
+const gameOverScoreEl = document.getElementById('gameOverScore');
+const gameOverBestEl = document.getElementById('gameOverBest');
+const newBestMessageEl = document.getElementById('newBestMessage');
+const currentScoreEl = document.getElementById('currentScore');
+const bestScoreEl = document.getElementById('bestScore');
+const returnToMenuButton = document.getElementById('returnToMenu');
+const tryAgainButton = document.getElementById('tryAgain');
+let gameStarted = false;
+let menuAudioContext = null;
+let menuMelody = null;
+let menuBass = null;
+let menuMusicTimer = null;
+let menuMusicStep = 0;
+const BEST_SCORE_STORAGE_KEY = 'run4life.bestSurvivalTime';
+const savedBestScore = localStorage.getItem(BEST_SCORE_STORAGE_KEY);
+let bestSurvivalTime = savedBestScore === null ? null : Number(savedBestScore);
+if (!Number.isFinite(bestSurvivalTime) || bestSurvivalTime < 0) {
+  bestSurvivalTime = null;
+}
+let survivalTime = 0;
 
 // -- RUNNER SPRITE FRAMES -- //
 //Running Sprite
@@ -37,7 +59,7 @@ runnerRunSheets[3] = new Image();
 runnerRunSheets[3].src = 'sprites/Character-Sprites/runner-run-3.png';
 // Assuming you also have jump/slide for state 3, otherwise point them to 4
 runnerJumpSheets[3] = new Image();
-runnerJumpSheets[3].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerJumpSheets[3].src = 'sprites/Character-Sprites/runner-jump-3.png'; // or runner-jump-4.png
 runnerSlideSheets[3] = new Image();
 runnerSlideSheets[3].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
 
@@ -45,7 +67,7 @@ runnerSlideSheets[3].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or
 runnerRunSheets[2] = new Image();
 runnerRunSheets[2].src = 'sprites/Character-Sprites/runner-run-2.png';
 runnerJumpSheets[2] = new Image();
-runnerJumpSheets[2].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerJumpSheets[2].src = 'sprites/Character-Sprites/runner-jump-2.png'; // or runner-jump-4.png
 runnerSlideSheets[2] = new Image();
 runnerSlideSheets[2].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
 
@@ -53,13 +75,245 @@ runnerSlideSheets[2].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or
 runnerRunSheets[1] = new Image();
 runnerRunSheets[1].src = 'sprites/Character-Sprites/runner-run-1.png';
 runnerJumpSheets[1] = new Image();
-runnerJumpSheets[1].src = 'sprites/Character-Sprites/runner-jump-4.png'; // or runner-jump-4.png
+runnerJumpSheets[1].src = 'sprites/Character-Sprites/runner-jump-1.png'; // or runner-jump-4.png
 runnerSlideSheets[1] = new Image();
 runnerSlideSheets[1].src = 'sprites/Character-Sprites/runner-slide-4.png'; // or runner-slide-4.png
 
 // Map Images
 const skyImage = new Image();
 skyImage.src = 'sprites/Maps/Map1.png';
+
+// -- Background city (parallax buildings) --
+// These are painted/digital-art sprites, so keep smooth scaling enabled.
+// sx/sy/sw/sh crop away transparent padding so every building sits flush on the floor.
+const BUILDING_VARIANTS = [
+  { src: 'sprites/Building/Apartment-1.png',      sx: 1,  sy: 9,  sw: 191, sh: 247, weight: 5 },
+  { src: 'sprites/Building/Store-3.png',          sx: 10, sy: 38, sw: 345, sh: 250, weight: 4, sizeScale: 0.529 },
+  { src: 'sprites/Building/Short_Building-4.png', sx: 0,  sy: 2,  sw: 357, sh: 358, weight: 4 },
+  { src: 'sprites/Building/Short_Building-5.png', sx: 10, sy: 10, sw: 478, sh: 379, weight: 3 },
+  { src: 'sprites/Building/Short_Building-6.png', sx: 14, sy: 59, sw: 476, sh: 341, weight: 3 },
+  { src: 'sprites/Building/Short_Building-7.png', sx: 38, sy: 21, sw: 423, sh: 429, weight: 3 },
+  { src: 'sprites/Building/Tall_Building-2.png',  sx: 15, sy: 5,  sw: 255, sh: 640, weight: 4, sizeScale: 2 },
+];
+
+// Far -> near. Heights/widths are 1080p reference pixels, scaled by sceneScale().
+// The near layer is intentionally large and dense so the runner feels enclosed by the city.
+const BUILDING_LAYERS = [
+  { speed: 0.18, alpha: 0.50, height: [110, 230], maxWidth: 360, gap: [40, 150] },
+  { speed: 0.42, alpha: 0.75, height: [240, 470], maxWidth: 600, gap: [28, 110] },
+  { speed: 0.72, alpha: 1.00, height: [430, 800], maxWidth: 840, gap: [14, 75] },
+];
+
+// Street props sit in front of the buildings but behind the runner.
+const PROP_VARIANTS = [
+  { src: 'sprites/Building/Objects/Electric-Post.png', sx: 0, sy: 0, sw: 146, sh: 360, weight: 1 },
+  { src: 'sprites/Building/Objects/Electric-Post-2.png', sx: 0, sy: 0, sw: 150, sh: 360, weight: 1 },
+  { src: 'sprites/Building/Objects/Electric-Post-3.png', sx: 0, sy: 0, sw: 150, sh: 360, weight: 1 },
+];
+
+const PROP_LAYER = {
+  speed: 0.9,
+  alpha: 1.0,
+  // Taller than the tallest near-layer building (800) so the posts read as
+  // close foreground silhouettes, while staying within the visible sky height.
+  height: [820, 845],
+  maxWidth: 380,
+  // Sparse spacing: consecutive posts sit ~600-1100px apart (plus their width).
+  gap: [600, 1100],
+};
+
+BUILDING_VARIANTS.forEach(v => {
+  v.image = new Image();
+  v.image.src = v.src;
+});
+PROP_VARIANTS.forEach(v => {
+  v.image = new Image();
+  v.image.src = v.src;
+});
+
+let bgLayers = [];
+let propLayer = null;
+
+function sceneScale() {
+  return canvas.height / 1080;
+}
+
+function pickWeightedVariant(variants, previousIndex) {
+  const total = variants.reduce((sum, v) => sum + v.weight, 0);
+  let roll = Math.random() * total;
+  let index = 0;
+  for (; index < variants.length; index++) {
+    roll -= variants[index].weight;
+    if (roll <= 0) break;
+  }
+  if (index >= variants.length) index = variants.length - 1;
+
+  // Avoid placing the same sprite twice in a row.
+  if (variants.length > 1 && index === previousIndex) {
+    index = (index + 1) % variants.length;
+  }
+  return index;
+}
+
+function spawnScenery(state, unit) {
+  const index = pickWeightedVariant(state.variants, state.lastVariant);
+  state.lastVariant = index;
+  const variant = state.variants[index];
+  const layer = state.layer;
+
+  const [minHeight, maxHeight] = variant.height || layer.height;
+  let height = (minHeight + Math.random() * (maxHeight - minHeight)) * unit * (variant.sizeScale || 1);
+  let width = (variant.sw / variant.sh) * height;
+
+  // Keep very wide buildings from swallowing the whole viewport.
+  const maxWidth = layer.maxWidth * unit;
+  if (width > maxWidth) {
+    height *= maxWidth / width;
+    width = maxWidth;
+  }
+
+  state.items.push({
+    image: variant.image,
+    sx: variant.sx,
+    sy: variant.sy,
+    sw: variant.sw,
+    sh: variant.sh,
+    x: state.nextX,
+    y: getFloorTop() - height,
+    width,
+    height,
+    alpha: layer.alpha,
+  });
+
+  const [minGap, maxGap] = layer.gap;
+  state.nextX += width + (minGap + Math.random() * (maxGap - minGap)) * unit;
+}
+
+function makeSceneryState(layer, variants, startX) {
+  return { layer, variants, items: [], nextX: startX, lastVariant: -1 };
+}
+
+function resetBuildings() {
+  const unit = sceneScale();
+  bgLayers = BUILDING_LAYERS.map(layer =>
+    makeSceneryState(layer, BUILDING_VARIANTS, -canvas.width * 0.25)
+  );
+  propLayer = makeSceneryState(PROP_LAYER, PROP_VARIANTS, -canvas.width * 0.1);
+
+  const prefill = state => {
+    let guard = 0;
+    while (state.nextX < canvas.width + 400 * unit && guard++ < 300) {
+      spawnScenery(state, unit);
+    }
+  };
+
+  bgLayers.forEach(prefill);
+  prefill(propLayer);
+}
+
+function updateScenery(state, delta, worldSpeed, unit) {
+  const scroll = worldSpeed * state.layer.speed * delta;
+  state.nextX -= scroll;
+
+  for (const item of state.items) item.x -= scroll;
+  state.items = state.items.filter(item => item.x + item.width > -200 * unit);
+
+  let guard = 0;
+  while (state.nextX < canvas.width + 400 * unit && guard++ < 80) {
+    spawnScenery(state, unit);
+  }
+}
+
+function updateBuildings(delta, worldSpeed) {
+  const unit = sceneScale();
+  for (const state of bgLayers) updateScenery(state, delta, worldSpeed, unit);
+  if (propLayer) updateScenery(propLayer, delta, worldSpeed, unit);
+}
+
+function drawScenery(state) {
+  for (const item of state.items) {
+    if (!item.image.complete || item.image.naturalWidth === 0) continue;
+    ctx.globalAlpha = item.alpha;
+    ctx.drawImage(
+      item.image,
+      item.sx, item.sy, item.sw, item.sh,
+      item.x, item.y, item.width, item.height
+    );
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBuildings() {
+  for (const state of bgLayers) drawScenery(state);
+}
+
+// Wires attach along the crossarm. Real poles carry a bundle, so spread about
+// 15 lines across the bar (native 150x360, crop sx/sy = 0).
+const PROP_WIRE_COUNT = 15;
+const PROP_WIRE_ANCHORS = [];
+for (let i = 0; i < PROP_WIRE_COUNT; i++) {
+  const t = PROP_WIRE_COUNT === 1 ? 0.5 : i / (PROP_WIRE_COUNT - 1);
+  PROP_WIRE_ANCHORS.push({ x: 10 + t * 126, y: 24 });
+}
+
+// Map a native sprite point to screen space for a scaled prop item.
+function propAnchor(item, anchor) {
+  const sx = item.sx || 0;
+  const sy = item.sy || 0;
+  return {
+    x: item.x + ((anchor.x - sx) / item.sw) * item.width,
+    y: item.y + ((anchor.y - sy) / item.sh) * item.height,
+  };
+}
+
+function drawPropWires() {
+  if (!propLayer || propLayer.items.length < 2) return;
+
+  const unit = sceneScale();
+  const items = propLayer.items.slice().sort((a, b) => a.x - b.x);
+  const wireWidth = Math.max(1, 1.75 * unit);
+  const sag = 14 * unit;
+
+  ctx.save();
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = wireWidth;
+  ctx.lineCap = 'round';
+  ctx.globalAlpha = 1;
+
+  // Connect every consecutive pair of posts with a gently sagging line.
+  for (let i = 0; i < items.length - 1; i++) {
+    const a = items[i];
+    const b = items[i + 1];
+
+    // Skip spans entirely off-screen.
+    if (a.x + a.width < -40 * unit || b.x > canvas.width + 40 * unit) continue;
+
+    for (let j = 0; j < PROP_WIRE_ANCHORS.length; j++) {
+      const p = propAnchor(a, PROP_WIRE_ANCHORS[j]);
+      const q = propAnchor(b, PROP_WIRE_ANCHORS[j]);
+      const midX = (p.x + q.x) / 2;
+      // Fan the bundle: the leftmost line sags most and the rightmost least, so
+      // all 15 lines stay visually separate along the span.
+      const t = PROP_WIRE_COUNT === 1 ? 0.5 : j / (PROP_WIRE_COUNT - 1);
+      const sagScale = 8.5 - t * 8.0;
+      const midY = Math.max(p.y, q.y) + sag * sagScale;
+
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.quadraticCurveTo(midX, midY, q.x, q.y);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawProps() {
+  if (!propLayer) return;
+  // Wires first so the posts overlay the attachment points.
+  drawPropWires();
+  drawScenery(propLayer);
+}
 
 /* Player Health System */
 const MAX_LIVES = 4;
@@ -79,6 +333,129 @@ for(let i = 1; i <= 4; i++){
   runnerHeadSheets[i].src = `sprites/Meter-Sprites/meter-head-runner-${i}.png`;
 }
 
+function drawHatch() {
+  const centerX = canvas.width / 2;
+  const panelY = hatchY - 58;
+  const panelWidth = Math.min(460, Math.max(260, canvas.width - 32));
+  const panelX = centerX - panelWidth / 2;
+  const panelHeight = 142;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.fillStyle = 'rgba(5, 10, 11, 0.92)';
+  ctx.strokeStyle = '#b7c8b4';
+  ctx.lineWidth = 3;
+  roundRect(ctx, panelX, panelY - 20, panelWidth, panelHeight, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#e8eddf';
+  ctx.font = 'bold 18px monospace';
+  ctx.fillText(hatchState === 'failed' ? 'HATCH SEALED' : 'UNLOCK THE HATCH', centerX, panelY + 4);
+
+  const wordY = panelY + 38;
+  ctx.font = 'bold 16px monospace';
+  hatchWords.forEach((word, index) => {
+    const wordX = centerX - 105 + index * 105;
+    ctx.fillStyle = index < hatchWordIndex ? '#83d69a' : index === hatchWordIndex ? '#f2d26a' : '#68716b';
+    ctx.fillText(word.toUpperCase(), wordX, wordY);
+    if (index === hatchWordIndex && hatchState === 'active') {
+      ctx.strokeStyle = '#f2d26a';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(wordX - 42, wordY - 15, 84, 30);
+    }
+  });
+
+  ctx.fillStyle = '#d6dfd3';
+  ctx.font = '14px monospace';
+  const prompt = hatchState === 'entering'
+    ? 'THE HATCH IS RISING...'
+    : hatchState === 'failed'
+      ? 'NO LOCKPICKS LEFT'
+      : `TYPE: ${(hatchWords[hatchWordIndex] || '').toUpperCase()}  [ENTER]`;
+  ctx.fillText(prompt, centerX, panelY + 72);
+
+  if (hatchState === 'active') {
+    const inputWidth = Math.min(230, panelWidth - 36);
+    ctx.fillStyle = '#101817';
+    ctx.fillRect(centerX - inputWidth / 2, panelY + 91, inputWidth, 28);
+    ctx.strokeStyle = '#83d69a';
+    ctx.strokeRect(centerX - inputWidth / 2, panelY + 91, inputWidth, 28);
+    ctx.fillStyle = '#83d69a';
+    ctx.font = '16px monospace';
+    ctx.fillText(hatchTyped || '_', centerX, panelY + 105);
+  }
+
+  const hatchXPos = centerX - HATCH_WIDTH / 2;
+  const hatchTop = hatchY;
+  ctx.fillStyle = '#384744';
+  ctx.strokeStyle = '#c6d2c4';
+  ctx.lineWidth = 5;
+  roundRect(ctx, hatchXPos, hatchTop, HATCH_WIDTH, HATCH_HEIGHT, 12);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#53635d';
+  roundRect(ctx, hatchXPos + 18, hatchTop + 18, HATCH_WIDTH - 36, HATCH_HEIGHT - 36, 8);
+  ctx.fill();
+
+  ctx.fillStyle = '#d1b76a';
+  for (const [boltX, boltY] of [
+    [hatchXPos + 12, hatchTop + 12],
+    [hatchXPos + HATCH_WIDTH - 12, hatchTop + 12],
+    [hatchXPos + 12, hatchTop + HATCH_HEIGHT - 12],
+    [hatchXPos + HATCH_WIDTH - 12, hatchTop + HATCH_HEIGHT - 12],
+  ]) {
+    ctx.beginPath();
+    ctx.arc(boltX, boltY, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#c6d2c4';
+  ctx.font = 'bold 14px monospace';
+  ctx.fillText('ESCAPE', centerX, hatchTop + HATCH_HEIGHT / 2);
+
+  const lockpickX = panelX + panelWidth - 22;
+  const lockpickStartY = panelY + 18;
+  for (let index = 0; index < HATCH_LOCKPICK_COUNT; index++) {
+    drawLockpick(lockpickX, lockpickStartY + index * 38, index < lockpicksRemaining);
+  }
+
+  ctx.restore();
+}
+
+function drawLockpick(x, y, active) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.globalAlpha = active ? 1 : 0.25;
+  ctx.strokeStyle = active ? '#f2d26a' : '#89918b';
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(0, 0, 7, 0, Math.PI * 2);
+  ctx.moveTo(7, 0);
+  ctx.lineTo(23, 0);
+  ctx.lineTo(23, 7);
+  ctx.moveTo(17, 0);
+  ctx.lineTo(17, 5);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function roundRect(context, x, y, width, height, radius) {
+  const corner = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + corner, y);
+  context.lineTo(x + width - corner, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + corner);
+  context.lineTo(x + width, y + height - corner);
+  context.quadraticCurveTo(x + width, y + height, x + width - corner, y + height);
+  context.lineTo(x + corner, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - corner);
+  context.lineTo(x, y + corner);
+  context.quadraticCurveTo(x, y, x + corner, y);
+  context.closePath();
+}
 
 const chaserHeadImage = new Image();
 chaserHeadImage.src = 'sprites/Meter-Sprites/meter-head-chaser.png';
@@ -97,7 +474,7 @@ const CHASER_FRAME_W = 300;
 const CHASER_FRAME_H = 300;
 
 // Frame counts per animation
-const CHASER_RUN_FRAMES = 7;
+const CHASER_RUN_FRAMES = 9;
 const CHASER_JUMP_FRAMES = 8;
 const CHASER_SLIDE_FRAMES = 16;
 
@@ -122,18 +499,23 @@ wordBgImage.src = 'sprites/Others/word-bg.png';
 
 // Journey
 const JOURNEY_DURATION = 60;                     // seconds
-const JOURNEY_DISTANCE = JOURNEY_DURATION * 150;  // 18000px
+const JOURNEY_DISTANCE = JOURNEY_DURATION * 150;  // 9000px (150px travelled per second)
 
-// Meter (horizontal bar at the top of the screen)
+// Meter (horizontal journey bar near the bottom of the screen)
 const METER_BOTTOM_MARGIN = 50; 
 const ICON_SIZE = 32;   
 const METER_MARGIN_X = 60;
 const METER_HEIGHT = 12;
-const METER_MARKER_WIDTH = 12;
-const METER_MARKER_HEIGHT = 24;
 
-// Hatch — position relative to the runner's start
+// Hatch â€” position relative to the runner's start
 const HATCH_OFFSET_FROM_RUNNER = JOURNEY_DISTANCE;
+const HATCH_WORD_COUNT = 3;
+const HATCH_LOCKPICK_COUNT = 3;
+const HATCH_TRANSITION_DURATION = 0.8;
+const HATCH_WIDTH = 220;
+const HATCH_HEIGHT = 150;
+const HATCH_CHASER_SLOW_FACTOR = 0.3;
+const HATCH_CHASER_FAILURE_FACTOR = 2;
 
 //Obstacle Variants (1 - Barrier 2 - Stop sign 3 - Cone)
 const OBSTACLE_VARIANTS = [
@@ -174,7 +556,7 @@ const JUMP_DURATION = 1;      // seconds in the air
 const JUMP_HEIGHT = 150;         // peak pixels above the ground
 const CHASER_JUMP_DELAY = 0.25; // chaser starts its jump later
 const JUMP_TRIGGER_DISTANCE = 200;  // jump when obstacle is this far from runner
-const JUMP_SAFE_MARGIN = 40;         // extra leeway — jump still works if closer
+const JUMP_SAFE_MARGIN = 40;         // extra leeway â€” jump still works if closer
 const SLIDE_TRIGGER_DISTANCE = 180;   // start here; tune later
 const SLIDE_DURATION = 0.8;           // how long the slide lasts
 const SLIDE_HEIGHT = 20;
@@ -196,12 +578,31 @@ const CHASER_STAGGER_DURATION = 1.2; // how long the slowdown lasts
 const CHASER_STAGGER_FACTOR = 0.1;   // 0.1 = chaser moves at 10% speed
 const CHASER_BLOCK_DRIFT = 0.7;   // 0.6 = drifts at 60% of floor speed when blocked
 
+//CHASER ENRAGE (last life lost â€” jumpscare kill)
+const CHASER_ENRAGE_SPEED_MULTIPLIER = 6.0;  // 600% speed
+const CHASER_ENRAGE_JUMP_HEIGHT = 170;
+const CHASER_ENRAGE_JUMP_DURATION = 0.45;
+let chaserEnraged = false;
+let chaserEnrageTime = 0;
+let chaserEnrageJumpStartX = 0;
+let chaserEnrageJumpStartY = 0;
+
 //WORLD SPEED
 const WORLD_SPEED = 150;
 
 //DEFAULT ENTITY SIZE
 const ENTITY_WIDTH = 30;
 const ENTITY_HEIGHT = 50; 
+
+// -- Runner sprite / hitbox --
+// Shared by Runner.draw() and getRunnerBounds() so the drawn sprite and the
+// collision box can never drift apart.
+const RUNNER_SPRITE_SCALE = 2.0;
+const RUNNER_SLIDE_STRETCH_X = 1.5;
+const RUNNER_SLIDE_STRETCH_Y = 0.8;
+// Keeps the standing/jumping hitbox slightly smaller than the sprite.
+// 0.52 * 2.0 = 1.04, the effective footprint the game was tuned around.
+const RUNNER_HITBOX_INSET = 0.52;
 
 // -- Chaser Size -- 
 const CHASER_WIDTH = 50;
@@ -229,8 +630,23 @@ const SPAWN_INTERVAL_TIER_3 = 3.5; // even more space at tier 3
 const SLIDE_OBSTACLE_WIDTH = 50;
 const SLIDE_OBSTACLE_HEIGHT = 120;
 const SLIDE_OBSTACLE_GAP = 30;   // clearance between floor and block bottom
+const SLIDE_OBSTACLE_TOTAL_HEIGHT = SLIDE_OBSTACLE_HEIGHT + SLIDE_OBSTACLE_GAP;
 const SLIDE_UNLOCK_DISTANCE = 1500;
 const SLIDE_CHANCE_AFTER_UNLOCK = 0.5; 
+
+// Overhead-barrier sprites. The art includes the legs, so it is drawn from the
+// top of the block down to the floor (block 120 + floor gap 30 = 150 on screen).
+// Crop boxes strip transparent padding; the native leg/beam split maps to the
+// same ~30px clearance the hitbox uses.
+const SLIDE_OBSTACLE_VARIANTS = [
+  { src: 'sprites/Obstacles/sliding-obstacle-1.png', sx: 0, sy: 9,  sw: 150, sh: 351 },
+  { src: 'sprites/Obstacles/sliding-obstacle-2.png', sx: 3, sy: 11, sw: 146, sh: 349 },
+];
+
+SLIDE_OBSTACLE_VARIANTS.forEach(variant => {
+  variant.image = new Image();
+  variant.image.src = variant.src;
+});
 
 
 //Wrong letter feedback
@@ -239,6 +655,12 @@ let shakeTime = 0;          // seconds remaining on the camera shake
 const WRONG_FLASH_DURATION = 0.2;
 const SHAKE_DURATION = 0.25;
 const SHAKE_INTENSITY = 8;  // pixels of offset at peak
+
+// -- Camera follow --
+const CAMERA_JUMP_FOLLOW = 0.45;   // how much of jump height the camera follows
+const CAMERA_SLIDE_OFFSET = 28;    // lower camera slightly while sliding
+const CAMERA_SMOOTHING = 10;       // higher = snappier follow
+let cameraY = 0;
 
 
 
@@ -261,11 +683,19 @@ let lastHudUpdate = 0;      // for throttling HUD redraws
 //Distance Travelled
 let distanceTraveled = 0;
 let chaserDistanceTraveled = 0;
+let runnerStartX = 0;
 //Hatch Position
 let hatchX = null;   // set later, when the hatch spawns
+let hatchState = 'inactive';
+let hatchY = 0;
+let hatchTransitionTime = 0;
+let hatchWords = [];
+let hatchWordIndex = 0;
+let hatchTyped = '';
+let lockpicksRemaining = HATCH_LOCKPICK_COUNT;
 
 /**
- * Entity — Abstract base class for all game objects with a position and size.
+ * Entity â€” Abstract base class for all game objects with a position and size.
  *
  * Demonstrates:
  *   - Abstraction: defines the interface (update, draw, getBounds)
@@ -310,7 +740,7 @@ class Entity {
   draw(ctx) {}
 }
 /**
- * Runner — the player-controlled entity.
+ * Runner â€” the player-controlled entity.
  *
  * Demonstrates:
  *   - Inheritance: extends Entity (inherits x, y, width, height, getBounds)
@@ -344,7 +774,7 @@ class Runner extends Entity {
     };
   }
 
-  // Placeholder methods — filled in during later sub-steps.
+  // Placeholder methods â€” filled in during later sub-steps.
   update(delta) {
     const activeFrameCount = this.jump.active ? JUMP_FRAMES
                        : this.slide.active ? SLIDE_FRAMES
@@ -367,12 +797,8 @@ class Runner extends Entity {
     const isJumping = this.jump.active;
     const isSliding = this.slide.active;
 
-    const SPRITE_SCALE = 2.0;
-    const SLIDE_STRETCH_X = 1.5;
-    const SLIDE_STRETCH_Y = 0.8;
-
-    const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
-    const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
+    const spriteW = ENTITY_WIDTH * RUNNER_SPRITE_SCALE * (isSliding ? RUNNER_SLIDE_STRETCH_X : 1);
+    const spriteH = ENTITY_HEIGHT * RUNNER_SPRITE_SCALE * (isSliding ? RUNNER_SLIDE_STRETCH_Y : 1);
     const spriteX = this.x + (this.width - spriteW) / 2;
     const spriteY = this.y + this.height - spriteH + this.jump.yOffset;
 
@@ -493,19 +919,22 @@ update(delta, runner, obstacles, worldSpeed) {
   const dist = Math.hypot(dx, dy);
 
   // --- Blocked check ---
+  // An enraged chaser ignores obstacles entirely; nothing stops the final lunge.
   let blockedByObstacle = false;
-  for (const o of obstacles) {
-    if (!o.chaserDelay) continue;
-    if (o.chaserJumped || o.chaserSlid) continue;   // ← skip both
+  if (!chaserEnraged) {
+    for (const o of obstacles) {
+      if (!o.chaserDelay) continue;
+      if (o.chaserJumped || o.chaserSlid) continue;   // â† skip both
 
-    const obstacleCenterX = o.x + o.width / 2;
-    const gap = obstacleCenterX - chaserCX;
+      const obstacleCenterX = o.x + o.width / 2;
+      const gap = obstacleCenterX - chaserCX;
 
-    if (gap > 0 && gap < CHASER_STOP_DISTANCE) {
-      const isTargeted = (this.jump.targetId === o.id) || (this.slide.targetId === o.id);
-      if (!isTargeted) {
-        blockedByObstacle = true;
-        break;
+      if (gap > 0 && gap < CHASER_STOP_DISTANCE) {
+        const isTargeted = (this.jump.targetId === o.id) || (this.slide.targetId === o.id);
+        if (!isTargeted) {
+          blockedByObstacle = true;
+          break;
+        }
       }
     }
   }
@@ -514,12 +943,35 @@ update(delta, runner, obstacles, worldSpeed) {
 
   // --- Speed ---
   let chaserSpeed = getChaserSpeed();
-  if (this.staggerTime > 0) {
+  if (chaserEnraged) {
+    // 600% of the chaser's top speed, so the final lunge is always fast enough
+    // to read as a jumpscare even when the chaser is still far from the runner.
+    chaserSpeed = CHASER_SPEED_END * CHASER_ENRAGE_SPEED_MULTIPLIER;
+  } else if (hatchState === 'entering' || hatchState === 'active') {
+    chaserSpeed *= HATCH_CHASER_SLOW_FACTOR;
+  } else if (hatchState === 'failed') {
+    chaserSpeed *= HATCH_CHASER_FAILURE_FACTOR;
+  }
+  if (!chaserEnraged && this.staggerTime > 0) {
     chaserSpeed *= CHASER_STAGGER_FACTOR;
   }
 
   // --- Movement ---
-  if (blockedByObstacle) {
+  if (chaserEnraged && this.jump.active) {
+    const progress = Math.min(this.jump.time / this.jump.duration, 1);
+    const runnerBounds = getRunnerBounds();
+    const targetX = runnerBounds.x + (runnerBounds.width - this.width) / 2;
+    // Align chaser's jump bounds (y + yOffset) with runner bounds vertically
+    const targetBaseY = runnerBounds.y + (runnerBounds.height - this.height) / 2;
+    this.x = chaserEnrageJumpStartX + (targetX - chaserEnrageJumpStartX) * progress;
+    this.y = chaserEnrageJumpStartY + (targetBaseY - chaserEnrageJumpStartY) * progress;
+    this.distanceTraveled = (this.distanceTraveled || 0) + Math.abs(targetX - chaserEnrageJumpStartX) * (delta / this.jump.duration);
+  } else if (chaserEnraged) {
+    // After the single enrage jump, stay on the runner's hitbox
+    const runnerBounds = getRunnerBounds();
+    this.x = runnerBounds.x + (runnerBounds.width - this.width) / 2;
+    this.y = runnerBounds.y + (runnerBounds.height - this.height) / 2;
+  } else if (blockedByObstacle) {
     this.x -= worldSpeed * delta * CHASER_BLOCK_DRIFT;
   } else if (dist > 1) {
     const move = (dx / dist) * chaserSpeed * delta;
@@ -586,22 +1038,37 @@ class Obstacle extends Entity {
 
   draw(ctx) {
     if (this.type === 'slide') {
-      // Floating block placeholder
-      ctx.fillStyle = this.cleared ? '#7a3d00' : '#f80';
-      ctx.fillRect(this.x, this.y, this.width, this.height);
+      const variant = SLIDE_OBSTACLE_VARIANTS[this.variantIndex];
+      const sprite = variant && variant.image;
 
-      // Support legs
-      const legTop = this.y + this.height;
-      const legBottom = getFloorTop();
-      ctx.fillStyle = '#000';
+      if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+        // The art includes the legs, so draw it from the block top down to the floor.
+        const drawHeight = SLIDE_OBSTACLE_TOTAL_HEIGHT;
+        const drawWidth = drawHeight * (variant.sw / variant.sh);
+        const drawX = this.x + this.width / 2 - drawWidth / 2;
+        ctx.drawImage(
+          sprite,
+          variant.sx, variant.sy, variant.sw, variant.sh,
+          drawX, getFloorTop() - drawHeight, drawWidth, drawHeight
+        );
+      } else {
+        // Placeholder while the sprites load
+        ctx.fillStyle = this.cleared ? '#7a3d00' : '#f80';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
 
-      ctx.fillRect(this.x + 5, legTop, 6, legBottom - legTop);
-      ctx.fillRect(this.x + this.width - 11, legTop, 6, legBottom - legTop);
-      ctx.fillRect(this.x + 5, legTop + (legBottom - legTop) / 2, this.width - 10, 4);
+        // Support legs
+        const legTop = this.y + this.height;
+        const legBottom = getFloorTop();
+        ctx.fillStyle = '#000';
 
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(this.x, this.y, this.width, this.height);
+        ctx.fillRect(this.x + 5, legTop, 6, legBottom - legTop);
+        ctx.fillRect(this.x + this.width - 11, legTop, 6, legBottom - legTop);
+        ctx.fillRect(this.x + 5, legTop + (legBottom - legTop) / 2, this.width - 10, 4);
+
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+      }
     } else {
       const variant = OBSTACLE_VARIANTS[this.variantIndex];
       const sprite = variant.images[0];
@@ -610,44 +1077,14 @@ class Obstacle extends Entity {
       if (sprite && sprite.complete && sprite.naturalWidth > 0) {
         ctx.drawImage(sprite, this.x, this.y, this.width, this.height);
       }
-
-      // Placeholder rectangle (uncomment if you want the tint back)
-      // ctx.globalAlpha = 0.4;
-      // ctx.fillStyle = this.cleared ? '#7a3d00' : '#f80';
-      // ctx.fillRect(this.x, this.y, this.width, this.height);
-      // ctx.globalAlpha = 1.0;
     }
 
     drawObstacleWord(this);
   }
 }
-// const runner = {
-//   x: canvas.width / 2 - ENTITY_WIDTH / 2,
-//   y: canvas.height / 2 - ENTITY_HEIGHT / 2,
-//   width: ENTITY_WIDTH,
-//   height: ENTITY_HEIGHT,
-// };
 const runner = new Runner(0, 0);
 
 const chaser = new Chaser(-CHASER_WIDTH / 2, 0);
-
-// const chaserJump = {
-//   active: false,
-//   time: 0,
-//   duration: JUMP_DURATION,
-//   height: JUMP_HEIGHT,
-//   yOffset: 0,
-//   targetId: null,
-// };
-
-// const chaserSlide = {
-//   active: false,
-//   time: 0,
-//   duration: SLIDE_DURATION,
-//   height: ENTITY_HEIGHT,
-//   width: ENTITY_WIDTH,
-//   targetId: null,
-// };
 
 const WORD_POOLS = {
   easy: [
@@ -666,7 +1103,7 @@ const WORD_POOLS = {
     'overboard', 'trembling', 'frightened', 'accelerate', 'overcoming',
     'synchronize', 'bewildered', 'complicated', 'transcended', 'unshaken',
     'relentless', 'illuminated', 'disasterous', 'uncovering', 'persistent',
-    'networking', 'algorithm'
+    'networking', 'algorithm' 
   ],
 };
 
@@ -677,6 +1114,15 @@ const scorePopups = [];
 
 
 window.addEventListener('keydown', (e) => {
+  if (!gameStarted) return;
+
+  if (hatchState !== 'inactive') {
+    if (hatchState === 'active' && e.key.length === 1 && /^[a-z]$/i.test(e.key)) {
+      hatchTyped += e.key.toLowerCase();
+    }
+    return;
+  }
+
   // Only care about single-character keys (letters, numbers)
   if (e.key.length !== 1) return;
 
@@ -689,6 +1135,22 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('keydown', (e) => {
+  if (!gameStarted) return;
+
+  if (hatchState !== 'inactive') {
+    if (hatchState !== 'active') return;
+    if (e.key === 'Backspace') {
+      hatchTyped = hatchTyped.slice(0, -1);
+      e.preventDefault();
+    } else if (e.key === 'Escape') {
+      hatchTyped = '';
+    } else if (e.key === 'Enter') {
+      submitHatchWord();
+      e.preventDefault();
+    }
+    return;
+  }
+
   if (e.key === 'Backspace') {
     currentTyped = currentTyped.slice(0, -1);
     e.preventDefault();
@@ -697,6 +1159,95 @@ window.addEventListener('keydown', (e) => {
     currentTyped = '';
   }
 });
+
+menuMusicButton.addEventListener('click', () => {
+  if (menuAudioContext) {
+    stopMenuMusic();
+  } else {
+    startMenuMusic();
+  }
+});
+
+playButton.addEventListener('click', startGame);
+returnToMenuButton.addEventListener('click', () => {
+  gameStarted = false;
+  gameOverEl.hidden = true;
+  gameOverEl.classList.remove('is-win');
+  mainMenuEl.hidden = false;
+  document.body.classList.remove('playing');
+});
+tryAgainButton.addEventListener('click', startGame);
+
+function startGame() {
+  mainMenuEl.hidden = true;
+  gameOverEl.hidden = true;
+  gameOverEl.classList.remove('is-win');
+  document.body.classList.add('playing');
+  gameStarted = true;
+  resetGame();
+  updateScoreDisplay();
+  lastTime = performance.now();
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+function startMenuMusic() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    menuMusicButton.disabled = true;
+    menuMusicButton.title = 'Menu music is not supported in this browser';
+    return;
+  }
+
+  menuAudioContext = new AudioContextClass();
+  menuAudioContext.resume();
+  menuMelody = menuAudioContext.createOscillator();
+  menuBass = menuAudioContext.createOscillator();
+  const melodyGain = menuAudioContext.createGain();
+  const bassGain = menuAudioContext.createGain();
+  melodyGain.gain.value = 0.035;
+  bassGain.gain.value = 0.025;
+  menuMelody.type = 'triangle';
+  menuBass.type = 'sine';
+  menuMelody.connect(melodyGain).connect(menuAudioContext.destination);
+  menuBass.connect(bassGain).connect(menuAudioContext.destination);
+  menuMelody.frequency.value = 220;
+  menuBass.frequency.value = 110;
+  menuMelody.start();
+  menuBass.start();
+
+  const melodyNotes = [220, 261.63, 329.63, 392, 329.63, 261.63];
+  const bassNotes = [110, 130.81, 98, 146.83];
+  menuMusicStep = 0;
+  menuMusicTimer = window.setInterval(() => {
+    if (!menuAudioContext || !menuMelody || !menuBass) return;
+    const now = menuAudioContext.currentTime;
+    menuMelody.frequency.setTargetAtTime(melodyNotes[menuMusicStep % melodyNotes.length], now, 0.04);
+    if (menuMusicStep % 3 === 0) {
+      menuBass.frequency.setTargetAtTime(bassNotes[(menuMusicStep / 3) % bassNotes.length], now, 0.08);
+    }
+    menuMusicStep += 1;
+  }, 320);
+
+  menuMusicButton.setAttribute('aria-pressed', 'true');
+  menuMusicButton.setAttribute('aria-label', 'Disable menu music');
+  menuMusicButton.title = 'Disable menu music';
+}
+
+function stopMenuMusic() {
+  if (menuMusicTimer !== null) {
+    window.clearInterval(menuMusicTimer);
+    menuMusicTimer = null;
+  }
+  if (menuMelody) menuMelody.stop();
+  if (menuBass) menuBass.stop();
+  if (menuAudioContext) menuAudioContext.close();
+  menuMelody = null;
+  menuBass = null;
+  menuAudioContext = null;
+  menuMusicButton.setAttribute('aria-pressed', 'false');
+  menuMusicButton.setAttribute('aria-label', 'Enable menu music');
+  menuMusicButton.title = 'Enable menu music';
+}
 
 function getEntityY() {
   return getGroundY() - ENTITY_HEIGHT / 2;
@@ -724,8 +1275,7 @@ function getWorldSpeed() {
 }
 
 function getSpawnInterval() {
-  const distanceTraveled = getdistanceTraveledScore();
-  if (distanceTraveled >= WORD_TIER_3_DISTAMCE) return SPAWN_INTERVAL_TIER_3;
+  if (distanceTraveled >= WORD_TIER_3_DISTANCE) return SPAWN_INTERVAL_TIER_3;
   if (distanceTraveled >= WORD_TIER_2_DISTANCE) return SPAWN_INTERVAL_TIER_2;
   return spawnInterval;
 }
@@ -733,6 +1283,45 @@ function getSpawnInterval() {
 function getHatchWorldX() {
   return runnerStartX + JOURNEY_DISTANCE;
 }
+
+function startHatchSequence() {
+  hatchState = 'entering';
+  hatchY = canvas.height + HATCH_HEIGHT;
+  hatchTransitionTime = 0;
+  hatchWords = Array.from({ length: HATCH_WORD_COUNT }, () => {
+    const pool = WORD_POOLS.easy;
+    return pool[Math.floor(Math.random() * pool.length)];
+  });
+  hatchWordIndex = 0;
+  hatchTyped = '';
+  lockpicksRemaining = HATCH_LOCKPICK_COUNT;
+  obstacles.length = 0;
+  targetedObstacle = null;
+  currentTyped = '';
+}
+
+function submitHatchWord() {
+  if (!hatchTyped) return;
+
+  if (hatchTyped === hatchWords[hatchWordIndex]) {
+    hatchWordIndex += 1;
+    hatchTyped = '';
+    if (hatchWordIndex === HATCH_WORD_COUNT) {
+      hatchState = 'opened';
+      gameOver('You unlocked the hatch and escaped!', 'ESCAPED');
+    }
+    return;
+  }
+
+  lockpicksRemaining -= 1;
+  hatchTyped = '';
+  wrongFlashTime = WRONG_FLASH_DURATION;
+  if (lockpicksRemaining <= 0) {
+    hatchState = 'failed';
+    hatchTransitionTime = 0;
+  }
+}
+
 function getSpeedMultiplier() {
   if (lives >= 4) return 1.00; // Normal
   if (lives >= 3) return 0.90; // Minor (10% slower)
@@ -755,13 +1344,49 @@ function loseLife() {
   runner.anim.frame = 0;
   runner.anim.timer = 0;
 
+  // Last life gone: do NOT end the run yet. Enrage the chaser and let it
+  // lunge at the runner; the game over fires only when it catches them.
   if (lives <= 0) {
-    gameOver('You took too much damage!');
+    startChaserEnrage();
   }
+}
+
+function startChaserLunge() {
+  chaser.jump.active = true;
+  chaser.jump.time = 0;
+  chaser.jump.duration = CHASER_ENRAGE_JUMP_DURATION;
+  chaser.jump.height = CHASER_ENRAGE_JUMP_HEIGHT;
+  chaser.jump.targetId = null;
+  chaser.anim.frame = 0;
+  chaser.anim.timer = 0;
+  if (chaserEnraged) {
+    chaserEnrageJumpStartX = chaser.x;
+    chaserEnrageJumpStartY = chaser.y;
+  }
+}
+
+function startChaserEnrage() {
+  if (chaserEnraged) return;
+
+  chaserEnraged = true;
+  chaserEnrageTime = 0;
+
+  // Cancel any obstacle-response animation and ignore the stagger so the
+  // chaser can commit to the kill.
+  chaser.staggerTime = 0;
+  chaser.slide.active = false;
+  chaser.slide.time = 0;
+  chaser.slide.height = CHASER_HEIGHT;
+  chaser.slide.width = CHASER_WIDTH;
+  chaser.slide.targetId = null;
+
+  startChaserLunge();
 }
 
 
 function gameLoop(timestamp) {
+  if (!gameStarted) return;
+
   let delta = (timestamp - lastTime) / 1000;
   lastTime = timestamp;
 
@@ -772,10 +1397,10 @@ function gameLoop(timestamp) {
   const timeScale = getTimeScale();
   const scaledDelta = delta * timeScale;
 
-  update(scaledDelta);
+  update(scaledDelta, delta);
   draw();
 
-  rafId = requestAnimationFrame(gameLoop);
+  if (gameStarted) rafId = requestAnimationFrame(gameLoop);
 }
 function getTimeScale() {
   if (obstacles.length === 0) return 1;
@@ -790,7 +1415,7 @@ function getTimeScale() {
 
     if (distance > 0 && distance < SLOWMO_DISTANCE) {
       // Closer = slower
-      const t = distance / SLOWMO_DISTANCE;         // 1 → 0 as it approaches
+      const t = distance / SLOWMO_DISTANCE;         // 1 â†’ 0 as it approaches
       const factor = getSlowFactorForWord(o.word);
       const scale = factor + (1 - factor) * t;
       minScale = Math.min(minScale, scale);
@@ -817,21 +1442,10 @@ function getChaserY() {
 }
 
 function getRunnerBounds() {
-  const SPRITE_SCALE = 1.3;
-  const SLIDE_STRETCH_X = 1.4;   // must match your draw code
-  const HITBOX_INSET = 0.8;      // hitbox is 80% of sprite size
-
-  // Compute sprite footprint (mirrors the draw code exactly)
   const isSliding = runner.slide.active;
 
-    // const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
-    // const spriteH = ENTITY_HEIGHT * SPRITE_SCALE;
-  const spriteW = (isSliding ? runner.slide.width : ENTITY_WIDTH) * SPRITE_SCALE;
-  const spriteH = (isSliding ? runner.slide.height : ENTITY_HEIGHT) * SPRITE_SCALE;
-  const spriteX = runner.x + (runner.width - spriteW) / 2;
-  const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
-
-  // Slide — return the sprite footprint, or a slightly inset version
+  // Slide â€” use the dynamic squash box so the runner can fit under floating
+  // obstacles. This is intentionally smaller than the stretched slide sprite.
   if (isSliding) {
     const w = runner.slide.width;
     const h = runner.slide.height;
@@ -843,23 +1457,29 @@ function getRunnerBounds() {
     };
   }
 
-  // Jump — shrink toward a cube at the peak
+  // Standing / jumping â€” mirror Runner.draw()'s footprint using the shared
+  // sprite-scale constants.
+  const spriteW = ENTITY_WIDTH * RUNNER_SPRITE_SCALE;
+  const spriteH = ENTITY_HEIGHT * RUNNER_SPRITE_SCALE;
+  const spriteX = runner.x + (runner.width - spriteW) / 2;
+  const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
+
+  // Jump â€” shrink toward a cube at the peak
   if (runner.jump.active) {
     const factor = getJumpShrinkFactor();
-    const w = spriteW * HITBOX_INSET * factor;
-    const h = spriteH * HITBOX_INSET * factor;
+    const w = spriteW * RUNNER_HITBOX_INSET * factor;
+    const h = spriteH * RUNNER_HITBOX_INSET * factor;
     return {
       x: spriteX + (spriteW - w) / 2,
-      y: spriteY + (spriteH - h) / 2,   // ← center vertically instead of bottom
+      y: spriteY + (spriteH - h) / 2,   // center vertically
       width: w,
       height: h,
     };
-    
   }
 
   // Standing
-  const w = spriteW * HITBOX_INSET;
-  const h = spriteH * HITBOX_INSET;
+  const w = spriteW * RUNNER_HITBOX_INSET;
+  const h = spriteH * RUNNER_HITBOX_INSET;
   return {
     x: spriteX + (spriteW - w) / 2,
     y: spriteY + (spriteH - h),
@@ -1004,9 +1624,9 @@ function getSlideDurationForDistance() {
 
   if (!closest) return SLIDE_DURATION;
 
-  const speed = getWorldSpeed();                    // ← define once
+  const speed = getWorldSpeed();                    // â† define once
   const timeToReach = minDist / speed;
-  const timeToPass = (closest.width + runner.width) / speed;   // ← use `speed`
+  const timeToPass = (closest.width + runner.width) / speed;   // â† use `speed`
   const airtime = timeToReach + timeToPass;
 
   return Math.max(0.6, Math.min(airtime, 1.8));
@@ -1099,7 +1719,7 @@ function triggerRunnerJump() {
   runner.jump.time = 0;
   runner.jump.duration = getJumpDurationForDistance();
 
-  runner.anim.frame = 0;   // ← start from frame 0
+  runner.anim.frame = 0;   // â† start from frame 0
   runner.anim.timer = 0;
 }
 function triggerRunnerSlide() {
@@ -1127,7 +1747,7 @@ function checkTypedMatch() {
     return;
   }
 
-  // Full match → resolve the obstacle
+  // Full match â†’ resolve the obstacle
   if (currentTyped === word) {
     targetedObstacle.cleared = true;
     targetedObstacle.chaserDelay = true;
@@ -1163,7 +1783,8 @@ function drawObstacleWord(o) {
 
   const FONT_SIZE = 23;
   const LETTER_KERN = 2;
-  const FONT = `${FONT_SIZE}px Symtext`;
+  // Must match the @font-face family name declared in style.css.
+  const FONT = `${FONT_SIZE}px 'GameMode', monospace`;
 
   ctx.font = FONT;
   ctx.textAlign = 'left';
@@ -1226,7 +1847,7 @@ function updateJump(jump, delta) {
   }
 
   // Parabolic arc: peak at duration/2
-  const t = jump.time / jump.duration;         // 0 → 1
+  const t = jump.time / jump.duration;         // 0 â†’ 1
   jump.yOffset = -4 * jump.height * t * (1 - t); // classic parabola
 
 }
@@ -1262,28 +1883,68 @@ function updateSlide(slide, entity, delta) {
   slide.width = entity.width + (SLIDE_WIDTH - entity.width) * phase;
 }
 
-function update(delta) {
+function update(delta, elapsedTime = delta) {
+  survivalTime += elapsedTime;
+  updateScoreDisplay();
+
+  if (hatchState === 'inactive' && distanceTraveled >= JOURNEY_DISTANCE) {
+    startHatchSequence();
+  }
+
+  const isHatchSequence = hatchState !== 'inactive';
   const worldSpeed = getWorldSpeed();   // compute once per frame 
-  distanceTraveled += worldSpeed * delta;
+  if (!isHatchSequence) {
+    distanceTraveled = Math.min(distanceTraveled + worldSpeed * delta, JOURNEY_DISTANCE);
+  }
 
   //Countdown for wrong letter
   if (wrongFlashTime > 0) wrongFlashTime -= delta;
   if (shakeTime > 0) shakeTime -= delta;
   if (hitCooldownTime > 0) hitCooldownTime -= delta;
 
+  // -- Camera follow --
+  let targetCameraY = runner.jump.active ? -runner.jump.yOffset * CAMERA_JUMP_FOLLOW : 0;
+  if (runner.slide.active) targetCameraY -= CAMERA_SLIDE_OFFSET;
+  const cameraBlend = 1 - Math.exp(-CAMERA_SMOOTHING * elapsedTime);
+  cameraY += (targetCameraY - cameraY) * cameraBlend;
+
+  if (hatchState === 'entering') {
+    hatchTransitionTime += delta;
+    const progress = Math.min(hatchTransitionTime / HATCH_TRANSITION_DURATION, 1);
+    const easedProgress = 1 - Math.pow(1 - progress, 3);
+    hatchY = canvas.height / 2 - HATCH_HEIGHT / 2 +
+      (canvas.height + HATCH_HEIGHT - (canvas.height / 2 - HATCH_HEIGHT / 2)) * (1 - easedProgress);
+    if (progress >= 1) {
+      hatchState = 'active';
+    }
+  } else if (hatchState === 'failed') {
+    hatchTransitionTime += delta;
+    const progress = Math.min(hatchTransitionTime / HATCH_TRANSITION_DURATION, 1);
+    const easedProgress = progress * progress * (3 - 2 * progress);
+    hatchY = canvas.height / 2 - HATCH_HEIGHT / 2 +
+      (canvas.height + HATCH_HEIGHT - (canvas.height / 2 - HATCH_HEIGHT / 2)) * easedProgress;
+  }
+
   // -- Runner Update -- //
   runner.update(delta);
 
   // -- Chaser Update -- //
-  chaser.update(delta, runner, obstacles, worldSpeed);
-
+  // During the final jumpscare, use real time so slow motion cannot dilute it.
+  if (chaserEnraged) chaserEnrageTime += elapsedTime;
+  const chaserDelta = chaserEnraged ? elapsedTime : delta;
+  chaser.update(chaserDelta, runner, isHatchSequence ? [] : obstacles, worldSpeed);
 
   // --- Floor scroll ---
-  floorScroll -= getWorldSpeed() * delta;
-  if (floorScroll <= -80) floorScroll = 0;
+  if (!isHatchSequence) {
+    floorScroll -= getWorldSpeed() * delta;
+    if (floorScroll <= -80) floorScroll = 0;
+  }
+
+  // --- Parallax city ---
+  if (!isHatchSequence) updateBuildings(delta, worldSpeed);
 
   // --- Distance score ---
-  distanceScore += worldSpeed * delta * SCORE_PER_PIXEL;
+  if (!isHatchSequence) distanceScore += worldSpeed * delta * SCORE_PER_PIXEL;
 
   for (let i = scorePopups.length - 1; i >= 0; i--) {
   scorePopups[i].life -= delta; 
@@ -1293,7 +1954,7 @@ function update(delta) {
 
   // --- Move obstacles ---
 
-  obstacles.forEach(o => o.update(delta, worldSpeed));
+  if (!isHatchSequence) obstacles.forEach(o => o.update(delta, worldSpeed));
 
   // --- Remove off-screen obstacles ---
   for (let i = obstacles.length - 1; i >= 0; i--) {
@@ -1301,34 +1962,48 @@ function update(delta) {
   }
 
   // --- Choose typing target ---
-  pickTargetObstacle();
+  if (!isHatchSequence) pickTargetObstacle();
 
   // --- Spawn timer ---
-  spawnTimer += delta;
-  if (spawnTimer >= spawnInterval) {
-    spawnTimer = 0;
-    spawnObstacle();
+  if (!isHatchSequence && !chaserEnraged) {
+    spawnTimer += delta;
+    if (spawnTimer >= getSpawnInterval()) {
+      spawnTimer = 0;
+      spawnObstacle();
+    }
   }
-  checkActionTriggers();
-  checkChaserAction();
+  if (!isHatchSequence) {
+    checkActionTriggers();
+    if (!chaserEnraged) checkChaserAction();
+  }
   updateJump(runner.jump, delta);
   updateSlide(runner.slide, runner, delta);
   
 
   // Handle the chaser's delayed jump
-  const chaserJumpDelta = chaser.staggerTime > 0
-  ? delta * CHASER_STAGGER_FACTOR
-  : delta;
+  const chaserJumpDelta = chaserEnraged
+  ? elapsedTime
+  : chaser.staggerTime > 0
+    ? delta * CHASER_STAGGER_FACTOR
+    : delta;
   updateJump(chaser.jump, chaserJumpDelta);
   updateSlide(chaser.slide, chaser, chaserJumpDelta);
+  if (chaserEnraged && !chaser.jump.active) {
+    const runnerBounds = getRunnerBounds();
+    chaser.x = runnerBounds.x + (runnerBounds.width - chaser.width) / 2;
+    chaser.y = runnerBounds.y + (runnerBounds.height - chaser.height) / 2;
+  }
+
+  // Enraged chaser performs a single jump and lands on the runner's hitbox.
 
     // --- Collisions ---
   // --- Runner collision (uses visual bounds) ---
   const runnerBounds = getRunnerBounds();
-  for (const o of obstacles) {
+  for (const o of isHatchSequence ? [] : obstacles) {
     if (rectsOverlap(o, runnerBounds)) {
     loseLife();
     o.hitRunner = true; // Mark so it only hits once
+    if (!gameStarted) return;
     }
   }
 
@@ -1338,23 +2013,43 @@ function update(delta) {
     lives = 0; // Wipe lives
     gameOver('The chaser caught you!');
   }
-
-  // if (rectsOverlap(runner, chaser)) {
-  //   gameOver('The chaser caught you!');
-  // }
 }
 
-function gameOver(reason) {
+function gameOver(reason, title = 'YOU DIED') {
   cancelAnimationFrame(rafId);
-  alert('Game Over: ' + reason);
-  resetGame();
-  lastTime = performance.now();
-  rafId = requestAnimationFrame(gameLoop);
+  gameStarted = false;
+  const isNewBest = bestSurvivalTime === null || survivalTime > bestSurvivalTime;
+  if (isNewBest) {
+    bestSurvivalTime = survivalTime;
+    localStorage.setItem(BEST_SCORE_STORAGE_KEY, String(bestSurvivalTime));
+  }
+  updateScoreDisplay();
+  gameOverScoreEl.textContent = formatSurvivalTime(survivalTime);
+  gameOverBestEl.textContent = formatSurvivalTime(bestSurvivalTime);
+  newBestMessageEl.hidden = !isNewBest;
+  gameOverEl.classList.toggle('is-win', title === 'ESCAPED');
+  gameOverTitleEl.textContent = title;
+  gameOverReasonEl.textContent = reason;
+  gameOverEl.hidden = false;
+}
+
+function formatSurvivalTime(seconds) {
+  if (seconds === null) return 'NO RECORD';
+  const totalSeconds = Math.floor(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+}
+
+function updateScoreDisplay() {
+  const currentScore = formatSurvivalTime(survivalTime);
+  const bestScore = formatSurvivalTime(bestSurvivalTime);
+  if (currentScoreEl.textContent !== currentScore) currentScoreEl.textContent = currentScore;
+  if (bestScoreEl.textContent !== bestScore) bestScoreEl.textContent = bestScore;
 }
 function drawFloor() {
   const floorTop = getFloorTop();
   const floorH = FLOOR_HEIGHT;
-   // Solid floor band
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, floorTop, canvas.width, floorH);
 }
@@ -1373,72 +2068,31 @@ function draw() {
   ctx.save();
 
   if (shakeTime > 0) {
-  const t = shakeTime / SHAKE_DURATION;         // 1 → 0
-  const magnitude = SHAKE_INTENSITY * t;
+    const t = shakeTime / SHAKE_DURATION;
+    const magnitude = SHAKE_INTENSITY * t;
 
-  // Random offset in both axes
-  const offsetX = (Math.random() - 0.5) * 2 * magnitude;
-  const offsetY = (Math.random() - 0.5) * 2 * magnitude;
+    // Random offset in both axes
+    const offsetX = (Math.random() - 0.5) * 2 * magnitude;
+    const offsetY = (Math.random() - 0.5) * 2 * magnitude;
 
-  ctx.translate(offsetX, offsetY);
+    ctx.translate(offsetX, offsetY);
   }
 
+  ctx.translate(0, cameraY);
+
+  drawBuildings();
+  drawProps();
   drawFloor();
   drawMeter();
 
-// Runner
-const runnerH = runner.slide.active ? runner.slide.height : runner.height;
-const runnerW = runner.slide.active ? runner.slide.width : runner.width;
-const runnerX = runner.x - (runnerW - runner.width) / 2;
-const runnerY = runner.y + (runner.height - runnerH) + runner.jump.yOffset;
+  // Runner
+  runner.draw(ctx);
 
-  // // Debug reference rectangle (behind) — remove after tuning
-// const dbg = getRunnerBounds();
-// ctx.fillStyle = '#4f4';
-// ctx.fillRect(dbg.x, dbg.y, dbg.width, dbg.height);
-// ctx.strokeStyle = '#2a2';
-// ctx.lineWidth = 2;
-// ctx.strokeRect(dbg.x, dbg.y, dbg.width, dbg.height);
-
-//Runner sheet
-runner.draw(ctx);
-
-// Implementing sprite sheet using Javascript
-// const SPRITE_SCALE = 2.0;
-// const SLIDE_STRETCH_X = 1.5;
-// const SLIDE_STRETCH_Y = 0.8;
-
-// const isJumping = runner.jump.active;
-// const isSliding = runner.slide.active;
-
-// const spriteW = ENTITY_WIDTH * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_X : 1);
-// const spriteH = ENTITY_HEIGHT * SPRITE_SCALE * (isSliding ? SLIDE_STRETCH_Y : 1);
-// const spriteX = runner.x + (runner.width - spriteW) / 2;
-// const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
-
-// const activeSheet = isSliding ? slideSheet : isJumping ? jumpSheet : runSheet;
-// const activeFrameW = isSliding ? SLIDE_FRAME_W : isJumping ? JUMP_FRAME_W : RUN_FRAME_W;
-// const activeFrameH = isSliding ? SLIDE_FRAME_H : isJumping ? JUMP_FRAME_H : RUN_FRAME_H;
-
-// if (activeSheet.complete && activeSheet.naturalWidth > 0) {
-//   const sx = runner.anim.frame * activeFrameW;
-
-//   ctx.drawImage(
-//     activeSheet,
-//     sx, 0, activeFrameW, activeFrameH,
-//     spriteX, spriteY, spriteW, spriteH
-//   );
-// }
-
-// Chaser
-const chaserH = chaser.slide.active ? chaser.slide.height : chaser.height;
-const chaserW = chaser.slide.active ? chaser.slide.width : chaser.width;
-const chaserX = chaser.x - (chaserW - chaser.width) / 2;
-const chaserY = chaser.y + (chaser.height - chaserH);
-
-chaser.draw(ctx);
+  // Chaser
+  chaser.draw(ctx);
 
 obstacles.forEach(o => o.draw(ctx));
+if (hatchState !== 'inactive') drawHatch();
 
   scorePopups.forEach(p => {
   const alpha = p.life / p.maxLife;
@@ -1451,7 +2105,7 @@ obstacles.forEach(o => o.draw(ctx));
   const timeScale = getTimeScale();
   if (timeScale < 1) {
     // Fade the intensity based on how slow it is
-    const intensity = (1 - timeScale) / (1 - SLOWMO_FACTOR_MIN); // 0 → 1
+    const intensity = (1 - timeScale) / (1 - SLOWMO_FACTOR_MIN); // 0 â†’ 1
     ctx.fillStyle = `rgba(255, 0, 0, ${intensity * 0.08})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
@@ -1460,6 +2114,13 @@ obstacles.forEach(o => o.draw(ctx));
   const alpha = (wrongFlashTime / WRONG_FLASH_DURATION) * 0.35;
   ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Jumpscare pulse while the enraged chaser closes in.
+  if (chaserEnraged) {
+    const pulse = 0.10 + Math.sin(chaserEnrageTime * 30) * 0.06;
+    ctx.fillStyle = `rgba(255, 0, 0, ${Math.max(0, pulse)})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
     // --- Hit Cooldown Visual ---
   if (hitCooldownTime > 0) {
@@ -1487,7 +2148,23 @@ obstacles.forEach(o => o.draw(ctx));
     ctx.fillRect(barX, barY, fillWidth, barHeight);
   }
 
-  ctx.restore(); 
+  ctx.restore();
+
+  // Horror dark overlay: global dim + vignette
+  ctx.save();
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const vignette = ctx.createRadialGradient(
+    canvas.width / 2, canvas.height * 0.45, canvas.height * 0.24,
+    canvas.width / 2, canvas.height * 0.5, Math.max(canvas.width, canvas.height) * 0.8
+  );
+  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vignette.addColorStop(0.65, 'rgba(0, 0, 0, 0.06)');
+  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.32)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
 }
 
 function drawMeter() {
@@ -1545,16 +2222,6 @@ if (meterBarImage.complete && meterBarImage.naturalWidth > 0) {
   drawMeterIcon(hatchHeadImage, hatchMeterX, iconY, '#4bc9f0');
 }
 
-function drawMarker(x, color) {
-  const meterY = METER_MARGIN_TOP + METER_MARKER_HEIGHT / 2;
-  ctx.fillStyle = color;
-  ctx.fillRect(
-    x - METER_MARKER_WIDTH / 2,
-    meterY - METER_MARKER_HEIGHT / 2,
-    METER_MARKER_WIDTH,
-    METER_MARKER_HEIGHT
-  );
-}
 function drawMeterIcon(image, centerX, topY, fallbackColor) {
   const x = centerX - ICON_SIZE / 2;
 
@@ -1610,7 +2277,7 @@ function spawnObstacle() {
       obstacleH,
       word,
       'slide',
-      0   // no slide variant yet
+      Math.floor(Math.random() * SLIDE_OBSTACLE_VARIANTS.length)
     );
     obstacle.id = nextObstacleId++;
     obstacles.push(obstacle);
@@ -1632,23 +2299,30 @@ function spawnObstacle() {
     );
     obstacle.id = nextObstacleId++;
     obstacles.push(obstacle);
-    console.log('Pushed obstacle. Total:', obstacles.length);
-    }
+  }
 }
 function resetGame() {
 
+  survivalTime = 0;
   lives = MAX_LIVES;
+  hatchState = 'inactive';
+  hatchY = canvas.height + HATCH_HEIGHT;
+  hatchTransitionTime = 0;
+  hatchWords = [];
+  hatchWordIndex = 0;
+  hatchTyped = '';
+  lockpicksRemaining = HATCH_LOCKPICK_COUNT;
   hitCooldownTime = 0;
   obstacles.length = 0;
   targetedObstacle = null;
   currentTyped = '';
-  let runnerStartX = 0;
   distanceTraveled = 0;
   chaserDistanceTraveled = 0;
 
   /* Reset Visual Feedback */
   wrongFlashTime = 0;
   shakeTime = 0;
+  cameraY = 0;
   
 
   chaser.x = -CHASER_WIDTH / 2;
@@ -1662,6 +2336,8 @@ function resetGame() {
   spawnTimer = 0;
   lastTime = 0;
   chaser.staggerTime = 0;
+  chaserEnraged = false;
+  chaserEnrageTime = 0;
   score = 0;
   distanceScore = 0;
 
@@ -1672,10 +2348,9 @@ function resetGame() {
   runner.anim.timer = 0;
 
   chaser.jump.active = false;
-  chaser.jump.pending = false;
-  chaser.jump.pendingTime = 0;
   chaser.jump.time = 0;
   chaser.jump.yOffset = 0;
+  chaser.jump.height = JUMP_HEIGHT;
   chaser.jump.targetId = null;
 
   runner.slide.active = false;
@@ -1689,22 +2364,12 @@ function resetGame() {
   chaser.slide.width = ENTITY_WIDTH;
   chaser.slide.targetId = null;
 
+  resetBuildings();
 }
 
 function resizeCanvas() {
-  let w = window.innerWidth * PLAY_MAX_WIDTH;
-  let h = w / PLAY_ASPECT;
-
-  const maxH = window.innerHeight * PLAY_MAX_HEIGHT;
-  if (h > maxH) {
-    h = maxH;
-    w = h * PLAY_ASPECT;
-  }
-
-  canvas.width = Math.floor(w);
-  canvas.height = Math.floor(h);
-
-  const lineY = canvas.height * 3 / 4 - ENTITY_HEIGHT / 2;   // ← changed
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 
   if (typeof runner !== 'undefined') {
     runner.x = canvas.width * 0.6 - runner.width / 2;
@@ -1717,11 +2382,11 @@ function resizeCanvas() {
   }
 
   ctx.imageSmoothingEnabled = true;
+  resetBuildings();
 }
 
 document.fonts.ready.then(() => {
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
-  lastTime = performance.now();   // prevent huge first delta
-  rafId = requestAnimationFrame(gameLoop);
 });
+
