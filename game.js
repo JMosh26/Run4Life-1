@@ -335,10 +335,13 @@ for(let i = 1; i <= 4; i++){
 
 function drawHatch() {
   const centerX = canvas.width / 2;
-  const panelY = hatchY - 58;
-  const panelWidth = Math.min(460, Math.max(260, canvas.width - 32));
+  const panelWidth = Math.min(520, Math.max(300, canvas.width - 32));
+  const panelHeight = 190;
   const panelX = centerX - panelWidth / 2;
-  const panelHeight = 142;
+  const panelY = Math.max(8, hatchY - panelHeight - 16);
+  const contentLeft = panelX + 24;
+  const contentRight = panelX + panelWidth - 70;
+  const contentWidth = contentRight - contentLeft;
 
   ctx.save();
   ctx.textAlign = 'center';
@@ -347,45 +350,26 @@ function drawHatch() {
   ctx.fillStyle = 'rgba(5, 10, 11, 0.92)';
   ctx.strokeStyle = '#b7c8b4';
   ctx.lineWidth = 3;
-  roundRect(ctx, panelX, panelY - 20, panelWidth, panelHeight, 10);
+  roundRect(ctx, panelX, panelY, panelWidth, panelHeight, 10);
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = '#e8eddf';
   ctx.font = 'bold 18px monospace';
-  ctx.fillText(hatchState === 'failed' ? 'HATCH SEALED' : 'UNLOCK THE HATCH', centerX, panelY + 4);
+  ctx.fillText(hatchState === 'failed' ? 'HATCH SEALED' : 'UNLOCK THE HATCH', centerX, panelY + 22);
 
-  const wordY = panelY + 38;
-  ctx.font = 'bold 16px monospace';
-  hatchWords.forEach((word, index) => {
-    const wordX = centerX - 105 + index * 105;
-    ctx.fillStyle = index < hatchWordIndex ? '#83d69a' : index === hatchWordIndex ? '#f2d26a' : '#68716b';
-    ctx.fillText(word.toUpperCase(), wordX, wordY);
-    if (index === hatchWordIndex && hatchState === 'active') {
-      ctx.strokeStyle = '#f2d26a';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(wordX - 42, wordY - 15, 84, 30);
-    }
-  });
+  drawHatchSentence(contentLeft, panelY + 44, contentWidth, panelY + panelHeight - 40);
 
-  ctx.fillStyle = '#d6dfd3';
-  ctx.font = '14px monospace';
-  const prompt = hatchState === 'entering'
-    ? 'THE HATCH IS RISING...'
-    : hatchState === 'failed'
-      ? 'NO LOCKPICKS LEFT'
-      : `TYPE: ${(hatchWords[hatchWordIndex] || '').toUpperCase()}  [ENTER]`;
-  ctx.fillText(prompt, centerX, panelY + 72);
+  if (hatchState === 'entering' || hatchState === 'failed') {
+    ctx.fillStyle = '#d6dfd3';
+    ctx.font = '13px monospace';
+    ctx.fillText(hatchState === 'entering' ? 'THE HATCH IS RISING...' : 'NO LOCKPICKS LEFT', centerX, panelY + panelHeight - 18);
+  }
 
-  if (hatchState === 'active') {
-    const inputWidth = Math.min(230, panelWidth - 36);
-    ctx.fillStyle = '#101817';
-    ctx.fillRect(centerX - inputWidth / 2, panelY + 91, inputWidth, 28);
-    ctx.strokeStyle = '#83d69a';
-    ctx.strokeRect(centerX - inputWidth / 2, panelY + 91, inputWidth, 28);
-    ctx.fillStyle = '#83d69a';
-    ctx.font = '16px monospace';
-    ctx.fillText(hatchTyped || '_', centerX, panelY + 105);
+  const lockpickX = panelX + panelWidth - 24;
+  const lockpickStartY = panelY + 40;
+  for (let index = 0; index < HATCH_LOCKPICK_COUNT; index++) {
+    drawLockpick(lockpickX, lockpickStartY + index * 44, index < lockpicksRemaining);
   }
 
   const hatchXPos = centerX - HATCH_WIDTH / 2;
@@ -415,10 +399,82 @@ function drawHatch() {
   ctx.font = 'bold 14px monospace';
   ctx.fillText('ESCAPE', centerX, hatchTop + HATCH_HEIGHT / 2);
 
-  const lockpickX = panelX + panelWidth - 22;
-  const lockpickStartY = panelY + 18;
-  for (let index = 0; index < HATCH_LOCKPICK_COUNT; index++) {
-    drawLockpick(lockpickX, lockpickStartY + index * 38, index < lockpicksRemaining);
+  ctx.restore();
+}
+
+function drawHatchSentence(textLeft, textTop, maxWidth, textBottom) {
+  const words = hatchSentenceWords;
+  if (!words || words.length === 0) return;
+
+  const fontSize = 22;
+  const lineHeight = 30;
+
+  ctx.save();
+  // Symtext, declared as 'GameMode' in style.css.
+  ctx.font = `${fontSize}px 'GameMode', monospace`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  const spaceWidth = ctx.measureText(' ').width;
+  const wordMetrics = words.map((text) => {
+    const widths = [];
+    let width = 0;
+    for (let index = 0; index < text.length; index++) {
+      const charWidth = ctx.measureText(text[index]).width;
+      widths.push(charWidth);
+      width += charWidth;
+    }
+    return { widths, width };
+  });
+
+  const lines = [];
+  let currentLine = { words: [], width: 0 };
+
+  for (let index = 0; index < words.length; index++) {
+    const wordWidth = wordMetrics[index].width;
+    const extra = currentLine.words.length ? spaceWidth + wordWidth : wordWidth;
+    if (currentLine.words.length && currentLine.width + extra > maxWidth) {
+      lines.push(currentLine);
+      currentLine = { words: [], width: 0 };
+    }
+    const wordExtra = currentLine.words.length ? spaceWidth + wordWidth : wordWidth;
+    currentLine.words.push({ index, width: wordWidth });
+    currentLine.width += wordExtra;
+  }
+  if (currentLine.words.length) lines.push(currentLine);
+
+  const areaHeight = Math.max(0, textBottom - textTop);
+  const totalHeight = lines.length * lineHeight;
+  const startY = textTop + Math.max(0, (areaHeight - totalHeight) / 2);
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+    let x = textLeft + (maxWidth - line.width) / 2;
+    const y = startY + lineIndex * lineHeight;
+
+    for (const word of line.words) {
+      const text = words[word.index];
+      const metrics = wordMetrics[word.index];
+      const isCurrent = word.index === hatchWordIndex;
+      let typedCount = 0;
+      if (word.index < hatchWordIndex) {
+        typedCount = text.length;
+      } else if (isCurrent) {
+        typedCount = hatchTyped.length;
+      }
+
+      if (isCurrent && hatchState === 'active') {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.10)';
+        ctx.fillRect(x - 3, y - 2, word.width + 6, lineHeight - 2);
+      }
+
+      for (let charIndex = 0; charIndex < text.length; charIndex++) {
+        ctx.fillStyle = charIndex < typedCount ? '#ffffff' : '#68716b';
+        ctx.fillText(text[charIndex], x, y);
+        x += metrics.widths[charIndex];
+      }
+      x += spaceWidth;
+    }
   }
 
   ctx.restore();
@@ -509,13 +565,31 @@ const METER_HEIGHT = 12;
 
 // Hatch â€” position relative to the runner's start
 const HATCH_OFFSET_FROM_RUNNER = JOURNEY_DISTANCE;
-const HATCH_WORD_COUNT = 3;
 const HATCH_LOCKPICK_COUNT = 3;
 const HATCH_TRANSITION_DURATION = 0.8;
 const HATCH_WIDTH = 220;
 const HATCH_HEIGHT = 150;
 const HATCH_CHASER_SLOW_FACTOR = 0.3;
 const HATCH_CHASER_FAILURE_FACTOR = 2;
+const HATCH_LOCKPICK_COOLDOWN = 0.75; // seconds between lockpick losses
+
+// Sentences the player retypes word by word (press SPACE after each word) to open the hatch.
+const HATCH_SENTENCES = [
+  'run until the morning finds you',
+  'do not look back at the dark',
+  'the city sleeps but we keep moving',
+  'the hatch waits beyond the broken street',
+  'keep moving and the night will pass',
+  'escape is close do not stop now',
+];
+
+// --- TEMPORARY TESTING AID ---
+// When true, the hatch sequence triggers at the start of a run instead of after
+// JOURNEY_DISTANCE (9,000 px). Set to false (or remove this block) to restore
+// the normal journey. DEBUG_HATCH_TRIGGER_DISTANCE is the px threshold used
+// while the aid is enabled (0 = immediately).
+const DEBUG_HATCH_AT_START = false;
+const DEBUG_HATCH_TRIGGER_DISTANCE = 0;
 
 //Obstacle Variants (1 - Barrier 2 - Stop sign 3 - Cone)
 const OBSTACLE_VARIANTS = [
@@ -689,10 +763,12 @@ let hatchX = null;   // set later, when the hatch spawns
 let hatchState = 'inactive';
 let hatchY = 0;
 let hatchTransitionTime = 0;
-let hatchWords = [];
+let hatchSentence = '';
+let hatchSentenceWords = [];
 let hatchWordIndex = 0;
 let hatchTyped = '';
 let lockpicksRemaining = HATCH_LOCKPICK_COUNT;
+let hatchLockpickCooldownTime = 0;
 
 /**
  * Entity â€” Abstract base class for all game objects with a position and size.
@@ -1117,8 +1193,8 @@ window.addEventListener('keydown', (e) => {
   if (!gameStarted) return;
 
   if (hatchState !== 'inactive') {
-    if (hatchState === 'active' && e.key.length === 1 && /^[a-z]$/i.test(e.key)) {
-      hatchTyped += e.key.toLowerCase();
+    if (!e.repeat && hatchState === 'active' && e.key.length === 1 && /^[a-z]$/i.test(e.key)) {
+      handleHatchLetter(e.key.toLowerCase());
     }
     return;
   }
@@ -1144,7 +1220,7 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault();
     } else if (e.key === 'Escape') {
       hatchTyped = '';
-    } else if (e.key === 'Enter') {
+    } else if (e.key === ' ') {
       submitHatchWord();
       e.preventDefault();
     }
@@ -1288,37 +1364,52 @@ function startHatchSequence() {
   hatchState = 'entering';
   hatchY = canvas.height + HATCH_HEIGHT;
   hatchTransitionTime = 0;
-  hatchWords = Array.from({ length: HATCH_WORD_COUNT }, () => {
-    const pool = WORD_POOLS.easy;
-    return pool[Math.floor(Math.random() * pool.length)];
-  });
+  hatchSentence = HATCH_SENTENCES[Math.floor(Math.random() * HATCH_SENTENCES.length)];
+  hatchSentenceWords = hatchSentence.split(' ');
   hatchWordIndex = 0;
   hatchTyped = '';
   lockpicksRemaining = HATCH_LOCKPICK_COUNT;
+  hatchLockpickCooldownTime = 0;
   obstacles.length = 0;
   targetedObstacle = null;
   currentTyped = '';
 }
 
-function submitHatchWord() {
-  if (!hatchTyped) return;
+function handleHatchLetter(letter) {
+  const expectedWord = hatchSentenceWords[hatchWordIndex];
+  if (!expectedWord) return;
+  if (hatchTyped.length >= expectedWord.length) return;
 
-  if (hatchTyped === hatchWords[hatchWordIndex]) {
-    hatchWordIndex += 1;
-    hatchTyped = '';
-    if (hatchWordIndex === HATCH_WORD_COUNT) {
-      hatchState = 'opened';
-      gameOver('You unlocked the hatch and escaped!', 'ESCAPED');
-    }
+  const expectedLetter = expectedWord[hatchTyped.length];
+  if (letter === expectedLetter) {
+    hatchTyped += letter;
     return;
   }
 
+  if (hatchLockpickCooldownTime > 0) return;
+
   lockpicksRemaining -= 1;
-  hatchTyped = '';
+  hatchLockpickCooldownTime = HATCH_LOCKPICK_COOLDOWN;
   wrongFlashTime = WRONG_FLASH_DURATION;
   if (lockpicksRemaining <= 0) {
+    lockpicksRemaining = 0;
     hatchState = 'failed';
     hatchTransitionTime = 0;
+    // Sealed hatch is a jumpscare death: enrage the chaser so it lunges at the
+    // runner immediately instead of waiting for the normal chase to catch up.
+    startChaserEnrage();
+  }
+}
+
+function submitHatchWord() {
+  const expectedWord = hatchSentenceWords[hatchWordIndex];
+  if (!expectedWord || hatchTyped !== expectedWord) return;
+
+  hatchWordIndex += 1;
+  hatchTyped = '';
+  if (hatchWordIndex === hatchSentenceWords.length) {
+    hatchState = 'opened';
+    gameOver('You unlocked the hatch and escaped!', 'ESCAPED');
   }
 }
 
@@ -1887,7 +1978,8 @@ function update(delta, elapsedTime = delta) {
   survivalTime += elapsedTime;
   updateScoreDisplay();
 
-  if (hatchState === 'inactive' && distanceTraveled >= JOURNEY_DISTANCE) {
+  const hatchTriggerDistance = DEBUG_HATCH_AT_START ? DEBUG_HATCH_TRIGGER_DISTANCE : JOURNEY_DISTANCE;
+  if (hatchState === 'inactive' && distanceTraveled >= hatchTriggerDistance) {
     startHatchSequence();
   }
 
@@ -1901,6 +1993,7 @@ function update(delta, elapsedTime = delta) {
   if (wrongFlashTime > 0) wrongFlashTime -= delta;
   if (shakeTime > 0) shakeTime -= delta;
   if (hitCooldownTime > 0) hitCooldownTime -= delta;
+  if (hatchLockpickCooldownTime > 0) hatchLockpickCooldownTime -= delta;
 
   // -- Camera follow --
   let targetCameraY = runner.jump.active ? -runner.jump.yOffset * CAMERA_JUMP_FOLLOW : 0;
@@ -2308,10 +2401,12 @@ function resetGame() {
   hatchState = 'inactive';
   hatchY = canvas.height + HATCH_HEIGHT;
   hatchTransitionTime = 0;
-  hatchWords = [];
+  hatchSentence = '';
+  hatchSentenceWords = [];
   hatchWordIndex = 0;
   hatchTyped = '';
   lockpicksRemaining = HATCH_LOCKPICK_COUNT;
+  hatchLockpickCooldownTime = 0;
   hitCooldownTime = 0;
   obstacles.length = 0;
   targetedObstacle = null;

@@ -72,7 +72,7 @@ Requirements: a keyboard. There is no touch or mobile control scheme yet.
 | **A–Z** (and other single characters) | Type the target word |
 | **Backspace** | Delete the last typed letter |
 | **Escape** | Clear the current typing |
-| **Enter** (at the hatch) | Submit the typed hatch word |
+| **SPACE** (at the hatch) | Advance to the next sentence word |
 
 The game listens on `window`, so you do not need to click the canvas before typing.
 
@@ -83,8 +83,8 @@ The game listens on `window`, so you do not need to click the canvas before typi
 ```
 Main menu ──PLAY──▶ Running ──9,000 px──▶ Hatch challenge
                        │                      │
-                       │                      ├── all 3 words correct ──▶ ESCAPED (win)
-                       │                      └── 3 failed lockpicks ──▶ hatch drops, chaser at 2× speed
+                       │                      ├── whole sentence correct ──▶ ESCAPED (win)
+                       │                      └── 3 failed lockpicks ──▶ chaser enrages ──▶ caught ──▶ YOU DIED
                        │
                        └── lives = 0 ──▶ chaser enrages (600%) ──▶ caught ──▶ YOU DIED
 ```
@@ -159,7 +159,7 @@ Damage sources:
 
 After taking damage, the runner gets **2 seconds** of invincibility (`HIT_COOLDOWN`), shown as a pulsing white outline and a shrinking cooldown bar.
 
-Losing the **last life does not show the game-over screen immediately**. Instead the chaser enrages: it ignores obstacles and stagger, jumps to **600% of its top speed** (`CHASER_SPEED_END × CHASER_ENRAGE_SPEED_MULTIPLIER` = 720 px/s), and repeatedly leaps at the runner while the world freezes and the screen pulses red. The run ends only when the enraged chaser actually catches the runner. Contact with the chaser at any time is still an instant game over.
+Losing the **last life does not show the game-over screen immediately**. Instead the chaser enrages: it ignores obstacles and stagger, jumps to **600% of its top speed** (`CHASER_SPEED_END × CHASER_ENRAGE_SPEED_MULTIPLIER` = 720 px/s), and performs a single lunge before locking onto the runner while the world freezes and the screen pulses red. The run ends only when the enraged chaser actually catches the runner. Contact with the chaser at any time is still an instant game over.
 
 Jump and slide sprite sheets only exist for state 4. States 1–3 fall back to `runner-slide-4.png`; jump sheets exist for all four states.
 
@@ -175,8 +175,8 @@ Behavior:
 - Moves toward the runner's center each frame.
 - Stops **130 px** behind any cleared obstacle it has not yet traversed, drifting at **70%** of world speed while blocked.
 - Jumps or slides over cleared obstacles when they are **50 px** away.
-- During the hatch sequence it moves at **30%** speed; after a failed hatch it moves at **200%** speed.
-- When the runner's last life is lost it **enrages**: **600% of its top speed** (720 px/s), continuous jump lunges (`CHASER_ENRAGE_JUMP_DURATION`), ignores obstacles/stagger, and runs on real time so slow motion cannot delay the kill.
+- During the hatch sequence it moves at **30%** speed; if the hatch is sealed it enrages and lunges for the kill.
+- When the runner's last life is lost it **enrages**: **600% of its top speed** (720 px/s), a single enrage lunge (`CHASER_ENRAGE_JUMP_DURATION`), ignores obstacles/stagger, and runs on real time so slow motion cannot delay the kill.
 
 Touching the runner ends the run immediately.
 
@@ -212,13 +212,14 @@ When `distanceTraveled` reaches `JOURNEY_DISTANCE` (9,000 px), `startHatchSequen
 
 1. The hatch rises into the center of the screen over **0.8 seconds**.
 2. Obstacles are removed and normal spawning stops.
-3. The player must type **three easy words**, one at a time, pressing **Enter** to submit each.
+3. The player must retype **one sentence** from `HATCH_SENTENCES`, letter by letter. Typed letters turn white while the rest stay gray. Press **SPACE** to move to the next word once it is complete (Enter is ignored).
 4. The player has **3 lockpicks**:
-   - Correct word → advance to the next word.
-   - Wrong word → lose one lockpick.
-   - All lockpicks lost → the hatch drops away and the chaser doubles its speed.
+   - Correct letter → it is added to the current word.
+   - Wrong letter → the letter is rejected and one lockpick is lost.
+   - After a loss, a **0.75 s cooldown** ignores further wrong letters before another lockpick can be lost.
+   - All lockpicks lost → the hatch is sealed, the chaser enrages, and its jumpscare lunge ends the run.
 
-Completing all three words immediately ends the run with **ESCAPED** (green win screen). Runner lives are not consumed by the hatch challenge, but the chaser can still catch you while you type.
+Completing the whole sentence immediately ends the run with **ESCAPED** (green win screen). Runner lives are not consumed by the hatch challenge, but the chaser can still catch you while you type.
 
 ### 8. Scoring and records
 
@@ -301,7 +302,7 @@ Run4Life-1/
 | `index.html` | DOM shell: `#mainMenu`, `#gameOver`, `<canvas id="game">`, `#survivalHud` |
 | `style.css` | Menu layout/animation, game-over dialog, win/lose themes, HUD image |
 | `game.js` | Everything else: constants, entity classes, input, game loop, rendering |
-| `fonts/Symtext.ttf` | Font used for obstacle words |
+| `fonts/Symtext.ttf` | Font used for obstacle words and the hatch sentence |
 
 ---
 
@@ -372,8 +373,8 @@ requestAnimationFrame(gameLoop)
 
 Two `keydown` listeners split the work:
 
-1. **Letter input** — appends to `currentTyped` (or `hatchTyped` during the hatch) and calls `checkTypedMatch()`.
-2. **Editing keys** — handles Backspace, Escape, and Enter.
+1. **Letter input** — appends to `currentTyped` and calls `checkTypedMatch()`; during the hatch it calls `handleHatchLetter()` for per-letter validation.
+2. **Editing keys** — handles Backspace and Escape; during the hatch, SPACE advances a completed word and Enter is ignored.
 
 Menu music is generated procedurally with the Web Audio API (triangle melody + sine bass) and is opt-in via the ♪ button.
 
@@ -395,7 +396,7 @@ All tuning values live near the top of `game.js`, grouped by system.
 | Slide | `SLIDE_DURATION`, `SLIDE_HEIGHT`, `SLIDE_WIDTH`, `SLIDE_TRIGGER_DISTANCE` | Slide feel and hitbox |
 | Chaser | `CHASER_SPEED_START/END`, `CHASER_STOP_DISTANCE`, `CHASER_JUMP_CUE`, `CHASER_ENRAGE_SPEED_MULTIPLIER`, `CHASER_ENRAGE_JUMP_HEIGHT/DURATION` | Pursuit difficulty and final-life jumpscare |
 | Health | `MAX_LIVES`, `HIT_COOLDOWN` | Damage rules and invincibility |
-| Hatch | `HATCH_WORD_COUNT`, `HATCH_LOCKPICK_COUNT`, `HATCH_CHASER_SLOW_FACTOR`, `HATCH_CHASER_FAILURE_FACTOR` | Endgame rules |
+| Hatch | `HATCH_SENTENCES`, `HATCH_LOCKPICK_COUNT`, `HATCH_LOCKPICK_COOLDOWN`, `HATCH_CHASER_SLOW_FACTOR`, `HATCH_CHASER_FAILURE_FACTOR`, `DEBUG_HATCH_AT_START`, `DEBUG_HATCH_TRIGGER_DISTANCE` | Endgame rules and debug trigger |
 | Runner visuals | `RUNNER_SPRITE_SCALE`, `RUNNER_SLIDE_STRETCH_X/Y`, `RUNNER_HITBOX_INSET` | Shared draw scale and hitbox size |
 | Parallax city | `BUILDING_VARIANTS`, `BUILDING_LAYERS`, `PROP_VARIANTS`, `PROP_LAYER`, `PROP_WIRE_COUNT`, `PROP_WIRE_ANCHORS` | Sprite crop boxes, layer speed/height/alpha/gap, prop spacing, post wire count/attachment points |
 | Effects | `WRONG_FLASH_DURATION`, `SHAKE_DURATION`, `SHAKE_INTENSITY` | Feedback intensity |
@@ -438,6 +439,18 @@ Background buildings are single painted PNGs with alpha, not sprite sheets. Thei
 
 ## Changelog
 
+### 2026-11-10 — hatch endgame sign-off
+
+**Sentence hatch**
+- The hatch is unlocked by retyping **one sentence** from `HATCH_SENTENCES`, letter by letter, instead of three separate words.
+- Typed letters turn white inline (no input box or prompt). The sentence renders in the Symtext font (`'GameMode'`, 22px) with per-letter progress and a highlight on the current word.
+- **SPACE** advances a completed word; **Enter** is ignored. `e.repeat` is ignored so key-repeat cannot drain lockpicks.
+- Each wrong letter costs one of three lockpicks; a **0.75 s cooldown** (`HATCH_LOCKPICK_COOLDOWN`) ignores wrong letters while active. Correct letters always register.
+
+**Failure / debug**
+- Losing the final lockpick seals the hatch and calls `startChaserEnrage()`, so the jumpscare lunge ends the run in ~0.45 s.
+- The temporary hatch-at-start debug trigger is disabled; the hatch opens at the normal **9,000 px**.
+
 ### 2026-11-09 — `883216d` (pushed to `Hatch_Sys`)
 
 **Electric posts and wires**
@@ -452,7 +465,7 @@ Background buildings are single painted PNGs with alpha, not sprite sheets. Thei
 
 **Last-life enrage / jumpscare**
 - Losing the **last life no longer shows the game-over screen immediately**.
-- `loseLife()` starts `startChaserEnrage()` instead: the chaser moves at **720 px/s** (`CHASER_SPEED_END × 6`), ignores obstacles/stagger, and repeatedly leaps at the runner.
+- `loseLife()` starts `startChaserEnrage()` instead: the chaser moves at **720 px/s** (`CHASER_SPEED_END × 6`), ignores obstacles/stagger, and performs a single lunge before locking onto the runner.
 - The world freezes and a red pulse plays; the run ends **only** when the enraged chaser catches the runner.
 - The hatch **ESCAPED** win dialog is unchanged.
 - `resetGame()` clears the enrage state and restores the chaser's jump height.
@@ -474,7 +487,7 @@ Background buildings are single painted PNGs with alpha, not sprite sheets. Thei
 
 - [x] Main menu with animated road and optional Web Audio music
 - [x] Custom game-over screen with win/lose variants
-- [x] Hatch endgame with independent lockpicks
+- [x] Sentence-based hatch endgame with lockpicks
 - [x] Distance-based difficulty tiers and word pools
 - [x] Parallax city background with close, dense buildings and street props
 - [ ] Unlockable maps based on best distance/time
