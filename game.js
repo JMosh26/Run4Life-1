@@ -108,6 +108,7 @@ const BUILDING_LAYERS = [
 const PROP_VARIANTS = [
   { src: 'sprites/Building/Objects/Electric-Post.png', sx: 0, sy: 0, sw: 146, sh: 360, weight: 1 },
   { src: 'sprites/Building/Objects/Electric-Post-2.png', sx: 0, sy: 0, sw: 150, sh: 360, weight: 1 },
+  { src: 'sprites/Building/Objects/Electric-Post-3.png', sx: 0, sy: 0, sw: 150, sh: 360, weight: 1 },
 ];
 
 const PROP_LAYER = {
