@@ -88,12 +88,12 @@ skyImage.src = 'sprites/Maps/Map1.png';
 // sx/sy/sw/sh crop away transparent padding so every building sits flush on the floor.
 const BUILDING_VARIANTS = [
   { src: 'sprites/Building/Apartment-1.png',      sx: 1,  sy: 9,  sw: 191, sh: 247, weight: 5 },
-  { src: 'sprites/Building/Store-3.png',          sx: 10, sy: 38, sw: 345, sh: 250, weight: 4 },
+  { src: 'sprites/Building/Store-3.png',          sx: 10, sy: 38, sw: 345, sh: 250, weight: 4, sizeScale: 0.529 },
   { src: 'sprites/Building/Short_Building-4.png', sx: 0,  sy: 2,  sw: 357, sh: 358, weight: 4 },
   { src: 'sprites/Building/Short_Building-5.png', sx: 10, sy: 10, sw: 478, sh: 379, weight: 3 },
   { src: 'sprites/Building/Short_Building-6.png', sx: 14, sy: 59, sw: 476, sh: 341, weight: 3 },
   { src: 'sprites/Building/Short_Building-7.png', sx: 38, sy: 21, sw: 423, sh: 429, weight: 3 },
-  { src: 'sprites/Building/Tall_Building-2.png',  sx: 15, sy: 5,  sw: 255, sh: 640, weight: 4 },
+  { src: 'sprites/Building/Tall_Building-2.png',  sx: 15, sy: 5,  sw: 255, sh: 640, weight: 4, sizeScale: 2 },
 ];
 
 // Far -> near. Heights/widths are 1080p reference pixels, scaled by sceneScale().
@@ -107,6 +107,7 @@ const BUILDING_LAYERS = [
 // Street props sit in front of the buildings but behind the runner.
 const PROP_VARIANTS = [
   { src: 'sprites/Building/Objects/Electric-Post.png', sx: 0, sy: 0, sw: 146, sh: 360, weight: 1 },
+  { src: 'sprites/Building/Objects/Electric-Post-2.png', sx: 0, sy: 0, sw: 150, sh: 360, weight: 1 },
 ];
 
 const PROP_LAYER = {
@@ -159,8 +160,8 @@ function spawnScenery(state, unit) {
   const variant = state.variants[index];
   const layer = state.layer;
 
-  const [minHeight, maxHeight] = layer.height;
-  let height = (minHeight + Math.random() * (maxHeight - minHeight)) * unit;
+  const [minHeight, maxHeight] = variant.height || layer.height;
+  let height = (minHeight + Math.random() * (maxHeight - minHeight)) * unit * (variant.sizeScale || 1);
   let width = (variant.sw / variant.sh) * height;
 
   // Keep very wide buildings from swallowing the whole viewport.
@@ -505,7 +506,7 @@ const ICON_SIZE = 32;
 const METER_MARGIN_X = 60;
 const METER_HEIGHT = 12;
 
-// Hatch — position relative to the runner's start
+// Hatch â€” position relative to the runner's start
 const HATCH_OFFSET_FROM_RUNNER = JOURNEY_DISTANCE;
 const HATCH_WORD_COUNT = 3;
 const HATCH_LOCKPICK_COUNT = 3;
@@ -554,7 +555,7 @@ const JUMP_DURATION = 1;      // seconds in the air
 const JUMP_HEIGHT = 150;         // peak pixels above the ground
 const CHASER_JUMP_DELAY = 0.25; // chaser starts its jump later
 const JUMP_TRIGGER_DISTANCE = 200;  // jump when obstacle is this far from runner
-const JUMP_SAFE_MARGIN = 40;         // extra leeway — jump still works if closer
+const JUMP_SAFE_MARGIN = 40;         // extra leeway â€” jump still works if closer
 const SLIDE_TRIGGER_DISTANCE = 180;   // start here; tune later
 const SLIDE_DURATION = 0.8;           // how long the slide lasts
 const SLIDE_HEIGHT = 20;
@@ -576,12 +577,14 @@ const CHASER_STAGGER_DURATION = 1.2; // how long the slowdown lasts
 const CHASER_STAGGER_FACTOR = 0.1;   // 0.1 = chaser moves at 10% speed
 const CHASER_BLOCK_DRIFT = 0.7;   // 0.6 = drifts at 60% of floor speed when blocked
 
-//CHASER ENRAGE (last life lost — jumpscare kill)
+//CHASER ENRAGE (last life lost â€” jumpscare kill)
 const CHASER_ENRAGE_SPEED_MULTIPLIER = 6.0;  // 600% speed
 const CHASER_ENRAGE_JUMP_HEIGHT = 170;
 const CHASER_ENRAGE_JUMP_DURATION = 0.45;
 let chaserEnraged = false;
 let chaserEnrageTime = 0;
+let chaserEnrageJumpStartX = 0;
+let chaserEnrageJumpStartY = 0;
 
 //WORLD SPEED
 const WORLD_SPEED = 150;
@@ -652,6 +655,12 @@ const WRONG_FLASH_DURATION = 0.2;
 const SHAKE_DURATION = 0.25;
 const SHAKE_INTENSITY = 8;  // pixels of offset at peak
 
+// -- Camera follow --
+const CAMERA_JUMP_FOLLOW = 0.45;   // how much of jump height the camera follows
+const CAMERA_SLIDE_OFFSET = 28;    // lower camera slightly while sliding
+const CAMERA_SMOOTHING = 10;       // higher = snappier follow
+let cameraY = 0;
+
 
 
 let floorScroll = 0;      
@@ -685,7 +694,7 @@ let hatchTyped = '';
 let lockpicksRemaining = HATCH_LOCKPICK_COUNT;
 
 /**
- * Entity — Abstract base class for all game objects with a position and size.
+ * Entity â€” Abstract base class for all game objects with a position and size.
  *
  * Demonstrates:
  *   - Abstraction: defines the interface (update, draw, getBounds)
@@ -730,7 +739,7 @@ class Entity {
   draw(ctx) {}
 }
 /**
- * Runner — the player-controlled entity.
+ * Runner â€” the player-controlled entity.
  *
  * Demonstrates:
  *   - Inheritance: extends Entity (inherits x, y, width, height, getBounds)
@@ -764,7 +773,7 @@ class Runner extends Entity {
     };
   }
 
-  // Placeholder methods — filled in during later sub-steps.
+  // Placeholder methods â€” filled in during later sub-steps.
   update(delta) {
     const activeFrameCount = this.jump.active ? JUMP_FRAMES
                        : this.slide.active ? SLIDE_FRAMES
@@ -914,7 +923,7 @@ update(delta, runner, obstacles, worldSpeed) {
   if (!chaserEnraged) {
     for (const o of obstacles) {
       if (!o.chaserDelay) continue;
-      if (o.chaserJumped || o.chaserSlid) continue;   // ← skip both
+      if (o.chaserJumped || o.chaserSlid) continue;   // â† skip both
 
       const obstacleCenterX = o.x + o.width / 2;
       const gap = obstacleCenterX - chaserCX;
@@ -947,7 +956,21 @@ update(delta, runner, obstacles, worldSpeed) {
   }
 
   // --- Movement ---
-  if (blockedByObstacle) {
+  if (chaserEnraged && this.jump.active) {
+    const progress = Math.min(this.jump.time / this.jump.duration, 1);
+    const runnerBounds = getRunnerBounds();
+    const targetX = runnerBounds.x + (runnerBounds.width - this.width) / 2;
+    // Align chaser's jump bounds (y + yOffset) with runner bounds vertically
+    const targetBaseY = runnerBounds.y + (runnerBounds.height - this.height) / 2;
+    this.x = chaserEnrageJumpStartX + (targetX - chaserEnrageJumpStartX) * progress;
+    this.y = chaserEnrageJumpStartY + (targetBaseY - chaserEnrageJumpStartY) * progress;
+    this.distanceTraveled = (this.distanceTraveled || 0) + Math.abs(targetX - chaserEnrageJumpStartX) * (delta / this.jump.duration);
+  } else if (chaserEnraged) {
+    // After the single enrage jump, stay on the runner's hitbox
+    const runnerBounds = getRunnerBounds();
+    this.x = runnerBounds.x + (runnerBounds.width - this.width) / 2;
+    this.y = runnerBounds.y + (runnerBounds.height - this.height) / 2;
+  } else if (blockedByObstacle) {
     this.x -= worldSpeed * delta * CHASER_BLOCK_DRIFT;
   } else if (dist > 1) {
     const move = (dx / dist) * chaserSpeed * delta;
@@ -1335,6 +1358,10 @@ function startChaserLunge() {
   chaser.jump.targetId = null;
   chaser.anim.frame = 0;
   chaser.anim.timer = 0;
+  if (chaserEnraged) {
+    chaserEnrageJumpStartX = chaser.x;
+    chaserEnrageJumpStartY = chaser.y;
+  }
 }
 
 function startChaserEnrage() {
@@ -1387,7 +1414,7 @@ function getTimeScale() {
 
     if (distance > 0 && distance < SLOWMO_DISTANCE) {
       // Closer = slower
-      const t = distance / SLOWMO_DISTANCE;         // 1 → 0 as it approaches
+      const t = distance / SLOWMO_DISTANCE;         // 1 â†’ 0 as it approaches
       const factor = getSlowFactorForWord(o.word);
       const scale = factor + (1 - factor) * t;
       minScale = Math.min(minScale, scale);
@@ -1416,7 +1443,7 @@ function getChaserY() {
 function getRunnerBounds() {
   const isSliding = runner.slide.active;
 
-  // Slide — use the dynamic squash box so the runner can fit under floating
+  // Slide â€” use the dynamic squash box so the runner can fit under floating
   // obstacles. This is intentionally smaller than the stretched slide sprite.
   if (isSliding) {
     const w = runner.slide.width;
@@ -1429,14 +1456,14 @@ function getRunnerBounds() {
     };
   }
 
-  // Standing / jumping — mirror Runner.draw()'s footprint using the shared
+  // Standing / jumping â€” mirror Runner.draw()'s footprint using the shared
   // sprite-scale constants.
   const spriteW = ENTITY_WIDTH * RUNNER_SPRITE_SCALE;
   const spriteH = ENTITY_HEIGHT * RUNNER_SPRITE_SCALE;
   const spriteX = runner.x + (runner.width - spriteW) / 2;
   const spriteY = runner.y + runner.height - spriteH + runner.jump.yOffset;
 
-  // Jump — shrink toward a cube at the peak
+  // Jump â€” shrink toward a cube at the peak
   if (runner.jump.active) {
     const factor = getJumpShrinkFactor();
     const w = spriteW * RUNNER_HITBOX_INSET * factor;
@@ -1596,9 +1623,9 @@ function getSlideDurationForDistance() {
 
   if (!closest) return SLIDE_DURATION;
 
-  const speed = getWorldSpeed();                    // ← define once
+  const speed = getWorldSpeed();                    // â† define once
   const timeToReach = minDist / speed;
-  const timeToPass = (closest.width + runner.width) / speed;   // ← use `speed`
+  const timeToPass = (closest.width + runner.width) / speed;   // â† use `speed`
   const airtime = timeToReach + timeToPass;
 
   return Math.max(0.6, Math.min(airtime, 1.8));
@@ -1691,7 +1718,7 @@ function triggerRunnerJump() {
   runner.jump.time = 0;
   runner.jump.duration = getJumpDurationForDistance();
 
-  runner.anim.frame = 0;   // ← start from frame 0
+  runner.anim.frame = 0;   // â† start from frame 0
   runner.anim.timer = 0;
 }
 function triggerRunnerSlide() {
@@ -1719,7 +1746,7 @@ function checkTypedMatch() {
     return;
   }
 
-  // Full match → resolve the obstacle
+  // Full match â†’ resolve the obstacle
   if (currentTyped === word) {
     targetedObstacle.cleared = true;
     targetedObstacle.chaserDelay = true;
@@ -1819,7 +1846,7 @@ function updateJump(jump, delta) {
   }
 
   // Parabolic arc: peak at duration/2
-  const t = jump.time / jump.duration;         // 0 → 1
+  const t = jump.time / jump.duration;         // 0 â†’ 1
   jump.yOffset = -4 * jump.height * t * (1 - t); // classic parabola
 
 }
@@ -1873,6 +1900,12 @@ function update(delta, elapsedTime = delta) {
   if (wrongFlashTime > 0) wrongFlashTime -= delta;
   if (shakeTime > 0) shakeTime -= delta;
   if (hitCooldownTime > 0) hitCooldownTime -= delta;
+
+  // -- Camera follow --
+  let targetCameraY = runner.jump.active ? -runner.jump.yOffset * CAMERA_JUMP_FOLLOW : 0;
+  if (runner.slide.active) targetCameraY -= CAMERA_SLIDE_OFFSET;
+  const cameraBlend = 1 - Math.exp(-CAMERA_SMOOTHING * elapsedTime);
+  cameraY += (targetCameraY - cameraY) * cameraBlend;
 
   if (hatchState === 'entering') {
     hatchTransitionTime += delta;
@@ -1954,11 +1987,13 @@ function update(delta, elapsedTime = delta) {
     : delta;
   updateJump(chaser.jump, chaserJumpDelta);
   updateSlide(chaser.slide, chaser, chaserJumpDelta);
-
-  // Keep the enraged chaser leaping until it reaches the runner.
   if (chaserEnraged && !chaser.jump.active) {
-    startChaserLunge();
+    const runnerBounds = getRunnerBounds();
+    chaser.x = runnerBounds.x + (runnerBounds.width - chaser.width) / 2;
+    chaser.y = runnerBounds.y + (runnerBounds.height - chaser.height) / 2;
   }
+
+  // Enraged chaser performs a single jump and lands on the runner's hitbox.
 
     // --- Collisions ---
   // --- Runner collision (uses visual bounds) ---
@@ -2032,15 +2067,17 @@ function draw() {
   ctx.save();
 
   if (shakeTime > 0) {
-  const t = shakeTime / SHAKE_DURATION;         // 1 → 0
-  const magnitude = SHAKE_INTENSITY * t;
+    const t = shakeTime / SHAKE_DURATION;
+    const magnitude = SHAKE_INTENSITY * t;
 
-  // Random offset in both axes
-  const offsetX = (Math.random() - 0.5) * 2 * magnitude;
-  const offsetY = (Math.random() - 0.5) * 2 * magnitude;
+    // Random offset in both axes
+    const offsetX = (Math.random() - 0.5) * 2 * magnitude;
+    const offsetY = (Math.random() - 0.5) * 2 * magnitude;
 
-  ctx.translate(offsetX, offsetY);
+    ctx.translate(offsetX, offsetY);
   }
+
+  ctx.translate(0, cameraY);
 
   drawBuildings();
   drawProps();
@@ -2067,7 +2104,7 @@ if (hatchState !== 'inactive') drawHatch();
   const timeScale = getTimeScale();
   if (timeScale < 1) {
     // Fade the intensity based on how slow it is
-    const intensity = (1 - timeScale) / (1 - SLOWMO_FACTOR_MIN); // 0 → 1
+    const intensity = (1 - timeScale) / (1 - SLOWMO_FACTOR_MIN); // 0 â†’ 1
     ctx.fillStyle = `rgba(255, 0, 0, ${intensity * 0.08})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
@@ -2110,7 +2147,23 @@ if (hatchState !== 'inactive') drawHatch();
     ctx.fillRect(barX, barY, fillWidth, barHeight);
   }
 
-  ctx.restore(); 
+  ctx.restore();
+
+  // Horror dark overlay: global dim + vignette
+  ctx.save();
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const vignette = ctx.createRadialGradient(
+    canvas.width / 2, canvas.height * 0.45, canvas.height * 0.24,
+    canvas.width / 2, canvas.height * 0.5, Math.max(canvas.width, canvas.height) * 0.8
+  );
+  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vignette.addColorStop(0.65, 'rgba(0, 0, 0, 0.06)');
+  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.32)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
 }
 
 function drawMeter() {
@@ -2268,6 +2321,7 @@ function resetGame() {
   /* Reset Visual Feedback */
   wrongFlashTime = 0;
   shakeTime = 0;
+  cameraY = 0;
   
 
   chaser.x = -CHASER_WIDTH / 2;
@@ -2334,3 +2388,4 @@ document.fonts.ready.then(() => {
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 });
+

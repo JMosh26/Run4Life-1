@@ -47,6 +47,16 @@ body:not(.playing) #survivalHud {
   overflow: hidden;
   isolation: isolate;
   background: var(--menu-atmosphere);
+  filter: brightness(0.84) contrast(1.06) saturate(0.78);
+}
+
+#mainMenu::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.22) 100%);
 }
 
 #mainMenu[hidden] {
@@ -269,6 +279,7 @@ body:not(.playing) #survivalHud {
   border: 0;
   border-radius: 0;
   box-shadow: none;
+  filter: brightness(0.8) contrast(1.08) saturate(0.7) sepia(0.06);
 }
 
 .survival-hud {
@@ -332,7 +343,7 @@ body:not(.playing) #survivalHud {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(5, 7, 7, 0.76);
+  background: rgba(5, 7, 7, 0.82);
   animation: death-screen-fade 900ms ease-out both;
 }
 
