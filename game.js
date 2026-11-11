@@ -569,18 +569,21 @@ const HATCH_LOCKPICK_COUNT = 3;
 const HATCH_TRANSITION_DURATION = 0.8;
 const HATCH_WIDTH = 220;
 const HATCH_HEIGHT = 150;
-const HATCH_CHASER_SLOW_FACTOR = 0.3;
+const HATCH_OBSTACLE_WIDTH = 90;
+const HATCH_OBSTACLE_HEIGHT = 24;
+const HATCH_PROXIMITY_DISTANCE = 120;
+const HATCH_CHASER_SLOW_FACTOR = 0.85;
 const HATCH_CHASER_FAILURE_FACTOR = 2;
 const HATCH_LOCKPICK_COOLDOWN = 0.75; // seconds between lockpick losses
 
 // Sentences the player retypes word by word (press SPACE after each word) to open the hatch.
 const HATCH_SENTENCES = [
-  'run until the morning finds you',
-  'do not look back at the dark',
-  'the city sleeps but we keep moving',
-  'the hatch waits beyond the broken street',
-  'keep moving and the night will pass',
-  'escape is close do not stop now',
+  'run until the morning light finds you and the danger fades away',
+  'do not look back at the dark streets keep moving toward the light',
+  'the city sleeps but we keep moving through the night to survive',
+  'the hatch waits beyond the broken street so run as fast as you can',
+  'keep moving and the night will pass before the chaser can reach you',
+  'escape is close do not stop now type every word and break free',
 ];
 
 // --- TEMPORARY TESTING AID ---
@@ -769,6 +772,8 @@ let hatchWordIndex = 0;
 let hatchTyped = '';
 let lockpicksRemaining = HATCH_LOCKPICK_COUNT;
 let hatchLockpickCooldownTime = 0;
+let hatchObstacle = null;
+let hatchSpawned = false;
 
 /**
  * Entity â€” Abstract base class for all game objects with a position and size.
@@ -1113,6 +1118,15 @@ class Obstacle extends Entity {
   }
 
   draw(ctx) {
+    if (this.type === 'hatch') {
+      ctx.fillStyle = '#d11f1f';
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+      ctx.strokeStyle = '#6b0d0d';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(this.x, this.y, this.width, this.height);
+      return;
+    }
+
     if (this.type === 'slide') {
       const variant = SLIDE_OBSTACLE_VARIANTS[this.variantIndex];
       const sprite = variant && variant.image;
@@ -1360,7 +1374,25 @@ function getHatchWorldX() {
   return runnerStartX + JOURNEY_DISTANCE;
 }
 
+function spawnHatchObstacle() {
+  if (hatchSpawned) return;
+  const obstacle = new Obstacle(
+    canvas.width + 30,
+    getFloorTop() - HATCH_OBSTACLE_HEIGHT,
+    HATCH_OBSTACLE_WIDTH,
+    HATCH_OBSTACLE_HEIGHT,
+    '',
+    'hatch',
+    0
+  );
+  obstacle.id = nextObstacleId++;
+  obstacles.push(obstacle);
+  hatchObstacle = obstacle;
+  hatchSpawned = true;
+}
+
 function startHatchSequence() {
+  if (hatchState !== 'inactive') return;
   hatchState = 'entering';
   hatchY = canvas.height + HATCH_HEIGHT;
   hatchTransitionTime = 0;
@@ -1370,7 +1402,9 @@ function startHatchSequence() {
   hatchTyped = '';
   lockpicksRemaining = HATCH_LOCKPICK_COUNT;
   hatchLockpickCooldownTime = 0;
-  obstacles.length = 0;
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    if (obstacles[i] !== hatchObstacle) obstacles.splice(i, 1);
+  }
   targetedObstacle = null;
   currentTyped = '';
 }
@@ -1395,9 +1429,7 @@ function handleHatchLetter(letter) {
     lockpicksRemaining = 0;
     hatchState = 'failed';
     hatchTransitionTime = 0;
-    // Sealed hatch is a jumpscare death: enrage the chaser so it lunges at the
-    // runner immediately instead of waiting for the normal chase to catch up.
-    startChaserEnrage();
+    hatchY = canvas.height / 2 - HATCH_HEIGHT / 2;
   }
 }
 
@@ -1623,7 +1655,7 @@ function pickTargetObstacle() {
   let closestDist = Infinity;
 
   for (const o of obstacles) {
-    if (o.cleared) continue;
+    if (o.cleared || o.type === 'hatch') continue;
 
     const obstacleCX = o.x + o.width / 2;
     const dist = obstacleCX - runnerCX;
@@ -1866,7 +1898,7 @@ function checkTypedMatch() {
   }
 }
 function drawObstacleWord(o) {
-  if (o.cleared) return;
+  if (o.cleared || o.type === 'hatch') return;
 
   const isTarget = (o === targetedObstacle);
   const typed = isTarget ? currentTyped : '';
@@ -1979,8 +2011,15 @@ function update(delta, elapsedTime = delta) {
   updateScoreDisplay();
 
   const hatchTriggerDistance = DEBUG_HATCH_AT_START ? DEBUG_HATCH_TRIGGER_DISTANCE : JOURNEY_DISTANCE;
-  if (hatchState === 'inactive' && distanceTraveled >= hatchTriggerDistance) {
-    startHatchSequence();
+  if (!hatchSpawned && hatchState === 'inactive' && distanceTraveled >= hatchTriggerDistance) {
+    spawnHatchObstacle();
+  }
+  if (hatchState === 'inactive' && hatchObstacle) {
+    const runnerCenterX = runner.x + runner.width / 2;
+    const hatchCenterX = hatchObstacle.x + hatchObstacle.width / 2;
+    if (hatchCenterX - runnerCenterX <= HATCH_PROXIMITY_DISTANCE) {
+      startHatchSequence();
+    }
   }
 
   const isHatchSequence = hatchState !== 'inactive';
@@ -2005,17 +2044,24 @@ function update(delta, elapsedTime = delta) {
     hatchTransitionTime += delta;
     const progress = Math.min(hatchTransitionTime / HATCH_TRANSITION_DURATION, 1);
     const easedProgress = 1 - Math.pow(1 - progress, 3);
-    hatchY = canvas.height / 2 - HATCH_HEIGHT / 2 +
-      (canvas.height + HATCH_HEIGHT - (canvas.height / 2 - HATCH_HEIGHT / 2)) * (1 - easedProgress);
+    const targetY = canvas.height / 2 - HATCH_HEIGHT / 2;
+    const startY = canvas.height + HATCH_HEIGHT;
+    hatchY = startY + (targetY - startY) * easedProgress;
     if (progress >= 1) {
       hatchState = 'active';
+      hatchY = targetY;
     }
   } else if (hatchState === 'failed') {
     hatchTransitionTime += delta;
     const progress = Math.min(hatchTransitionTime / HATCH_TRANSITION_DURATION, 1);
     const easedProgress = progress * progress * (3 - 2 * progress);
-    hatchY = canvas.height / 2 - HATCH_HEIGHT / 2 +
-      (canvas.height + HATCH_HEIGHT - (canvas.height / 2 - HATCH_HEIGHT / 2)) * easedProgress;
+    const startY = canvas.height / 2 - HATCH_HEIGHT / 2;
+    const targetY = canvas.height + HATCH_HEIGHT;
+    hatchY = startY + (targetY - startY) * easedProgress;
+    if (progress >= 1 && !chaserEnraged) {
+      // Sealed hatch is a jumpscare death: enrage the chaser after the hatch UI pans away.
+      startChaserEnrage();
+    }
   }
 
   // -- Runner Update -- //
@@ -2058,7 +2104,7 @@ function update(delta, elapsedTime = delta) {
   if (!isHatchSequence) pickTargetObstacle();
 
   // --- Spawn timer ---
-  if (!isHatchSequence && !chaserEnraged) {
+  if (!isHatchSequence && !chaserEnraged && !hatchSpawned) {
     spawnTimer += delta;
     if (spawnTimer >= getSpawnInterval()) {
       spawnTimer = 0;
@@ -2093,10 +2139,11 @@ function update(delta, elapsedTime = delta) {
   // --- Runner collision (uses visual bounds) ---
   const runnerBounds = getRunnerBounds();
   for (const o of isHatchSequence ? [] : obstacles) {
+    if (o.type === 'hatch') continue;
     if (rectsOverlap(o, runnerBounds)) {
-    loseLife();
-    o.hitRunner = true; // Mark so it only hits once
-    if (!gameStarted) return;
+      loseLife();
+      o.hitRunner = true; // Mark so it only hits once
+      if (!gameStarted) return;
     }
   }
 
@@ -2407,6 +2454,8 @@ function resetGame() {
   hatchTyped = '';
   lockpicksRemaining = HATCH_LOCKPICK_COUNT;
   hatchLockpickCooldownTime = 0;
+  hatchObstacle = null;
+  hatchSpawned = false;
   hitCooldownTime = 0;
   obstacles.length = 0;
   targetedObstacle = null;

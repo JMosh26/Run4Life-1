@@ -1,6 +1,6 @@
-# Run4Life
+﻿# Run4Life
 
-**Run4Life** is a typing-based endless runner that runs entirely in the browser. Words hover above incoming obstacles — type each word correctly and your runner automatically jumps or slides over it. A chaser is always behind you, and every mistake costs you time, speed, and health.
+**Run4Life** is a typing-based endless runner that runs entirely in the browser. Words hover above incoming obstacles â€” type each word correctly and your runner automatically jumps or slides over it. A chaser is always behind you, and every mistake costs you time, speed, and health.
 
 No frameworks, no build step, no dependencies. Just open `index.html` and play.
 
@@ -54,12 +54,12 @@ Requirements: a keyboard. There is no touch or mobile control scheme yet.
 - Type the word shown above the nearest obstacle.
 - Typed letters turn **white**; untyped letters stay **gray**.
 - Completing a word triggers the obstacle's action automatically:
-  - **Ground obstacle** → the runner jumps over it.
-  - **Floating obstacle** → the runner slides under it.
+  - **Ground obstacle** â†’ the runner jumps over it.
+  - **Floating obstacle** â†’ the runner slides under it.
 - A wrong letter costs one life and shakes the screen.
 - Hitting an obstacle costs one life and slows the world down.
 - If the chaser touches you, the run ends immediately.
-- Survive **9,000 px** to reach the escape hatch, then unlock it to win.
+- Survive until the hatch appears, reach its red floor marker, and unlock it to win.
 
 > The journey is **nominal 60 seconds** at the base world speed. Slow motion and injuries can make an actual run take longer than 60 seconds of real time.
 
@@ -69,7 +69,7 @@ Requirements: a keyboard. There is no touch or mobile control scheme yet.
 
 | Key | Action |
 |-----|--------|
-| **A–Z** (and other single characters) | Type the target word |
+| **Aâ€“Z** (and other single characters) | Type the target word |
 | **Backspace** | Delete the last typed letter |
 | **Escape** | Clear the current typing |
 | **SPACE** (at the hatch) | Advance to the next sentence word |
@@ -81,12 +81,15 @@ The game listens on `window`, so you do not need to click the canvas before typi
 ## Game flow
 
 ```
-Main menu ──PLAY──▶ Running ──9,000 px──▶ Hatch challenge
-                       │                      │
-                       │                      ├── whole sentence correct ──▶ ESCAPED (win)
-                       │                      └── 3 failed lockpicks ──▶ chaser enrages ──▶ caught ──▶ YOU DIED
+Main menu ──PLAY──▶ Running ──9,000 px──▶ Hatch marker spawns
+                       │                         │
+                       │                         └─ runner in proximity ──▶ Hatch challenge
+                       │                                                      │
+                       │                                                      ├─ sentence correct ──▶ ESCAPED (win)
+                       │                                                      └─ 3 failed lockpicks ──▶ chaser enrages ──▶ caught ──▶ YOU DIED
                        │
-                       └── lives = 0 ──▶ chaser enrages (600%) ──▶ caught ──▶ YOU DIED
+                       ├─ lives = 0 ──▶ chaser enrages (600%) ──▶ caught ──▶ YOU DIED
+                       └─ chaser catches runner ──▶ YOU DIED
 ```
 
 Both endings show the game-over dialog with the final survival time, the saved best time, and **NEW BEST!** when applicable. The dialog offers **MAIN MENU** and **TRY AGAIN**.
@@ -112,8 +115,8 @@ As an untyped obstacle gets closer, time slows down:
 
 - Trigger distance: **220 px** (`SLOWMO_DISTANCE`).
 - Longer words slow time more:
-  - Shortest words (~3 letters) → **30% speed** (`SLOWMO_FACTOR_MAX`)
-  - Longest words (~10 letters) → **7% speed** (`SLOWMO_FACTOR_MIN`)
+  - Shortest words (~3 letters) â†’ **30% speed** (`SLOWMO_FACTOR_MAX`)
+  - Longest words (~10 letters) â†’ **7% speed** (`SLOWMO_FACTOR_MIN`)
 - The effect smoothly returns to 100% as the obstacle reaches the runner.
 - A subtle red tint shows how strong the slowdown is.
 
@@ -127,11 +130,11 @@ Obstacles are created by `spawnObstacle()` and move left with the world.
 
 | Variant | Size |
 |---------|------|
-| Barrier | 80 × 60 |
-| Stop sign | 50 × 50 |
-| Cone | 40 × 40 |
+| Barrier | 80 Ã— 60 |
+| Stop sign | 50 Ã— 50 |
+| Cone | 40 Ã— 40 |
 
-**Floating obstacles (`type = 'slide'`)** use `sliding-obstacle-1.png` or `sliding-obstacle-2.png`. The collision block is 50 × 120 px and floats **30 px** above the floor; the art includes the legs, so it is drawn 150 px tall (120 block + 30 gap) and its visible clearance matches the hitbox. They unlock after **1,500 px** and then have a **50%** spawn chance.
+**Floating obstacles (`type = 'slide'`)** use `sliding-obstacle-1.png` or `sliding-obstacle-2.png`. The collision block is 50 Ã— 120 px and floats **30 px** above the floor; the art includes the legs, so it is drawn 150 px tall (120 block + 30 gap) and its visible clearance matches the hitbox. They unlock after **1,500 px** and then have a **50%** spawn chance.
 
 When a word is completed, the action is queued (`awaitingJump` / `awaitingSlide`). `checkActionTriggers()` fires it when the obstacle reaches the trigger distance:
 
@@ -150,7 +153,7 @@ The runner has **4 lives** (`MAX_LIVES`). Each remaining life selects a sprite s
 | Minor injury | 3 | 90% | `runner-run-3` |
 | Injured | 2 | 80% | `runner-run-2` |
 | Critical | 1 | 70% | `runner-run-1` |
-| Dead | 0 | 0% (world freezes) | — |
+| Dead | 0 | 0% (world freezes) | â€” |
 
 Damage sources:
 
@@ -159,9 +162,9 @@ Damage sources:
 
 After taking damage, the runner gets **2 seconds** of invincibility (`HIT_COOLDOWN`), shown as a pulsing white outline and a shrinking cooldown bar.
 
-Losing the **last life does not show the game-over screen immediately**. Instead the chaser enrages: it ignores obstacles and stagger, jumps to **600% of its top speed** (`CHASER_SPEED_END × CHASER_ENRAGE_SPEED_MULTIPLIER` = 720 px/s), and performs a single lunge before locking onto the runner while the world freezes and the screen pulses red. The run ends only when the enraged chaser actually catches the runner. Contact with the chaser at any time is still an instant game over.
+Losing the **last life does not show the game-over screen immediately**. Instead the chaser enrages: it ignores obstacles and stagger, jumps to **600% of its top speed** (`CHASER_SPEED_END Ã— CHASER_ENRAGE_SPEED_MULTIPLIER` = 720 px/s), and performs a single lunge before locking onto the runner while the world freezes and the screen pulses red. The run ends only when the enraged chaser actually catches the runner. Contact with the chaser at any time is still an instant game over.
 
-Jump and slide sprite sheets only exist for state 4. States 1–3 fall back to `runner-slide-4.png`; jump sheets exist for all four states.
+Jump and slide sprite sheets only exist for state 4. States 1â€“3 fall back to `runner-slide-4.png`; jump sheets exist for all four states.
 
 ### 5. The chaser
 
@@ -175,7 +178,7 @@ Behavior:
 - Moves toward the runner's center each frame.
 - Stops **130 px** behind any cleared obstacle it has not yet traversed, drifting at **70%** of world speed while blocked.
 - Jumps or slides over cleared obstacles when they are **50 px** away.
-- During the hatch sequence it moves at **30%** speed; if the hatch is sealed it enrages and lunges for the kill.
+- During the hatch sequence it moves at **85%** speed (`HATCH_CHASER_SLOW_FACTOR`); if the hatch is sealed it enrages and lunges for the kill.
 - When the runner's last life is lost it **enrages**: **600% of its top speed** (720 px/s), a single enrage lunge (`CHASER_ENRAGE_JUMP_DURATION`), ignores obstacles/stagger, and runs on real time so slow motion cannot delay the kill.
 
 Touching the runner ends the run immediately.
@@ -192,19 +195,19 @@ Difficulty is driven by `distanceTraveled`:
 | 1,500 px | 10 s | Easy | 100% | 4.0 s |
 | 3,000 px | 20 s | Medium | 95% | 3.0 s |
 | 5,250 px | 35 s | Hard | 90% | 3.5 s |
-| 9,000 px | 60 s | Hatch | — | — |
+| 9,000 px | 60 s | Hatch | â€” | â€” |
 
 Additional rules:
 
 - Floating obstacles unlock at **1,500 px** (50% spawn chance).
-- The health multiplier is applied **on top of** the tier speed. A critical runner in the hard tier moves the world at `90% × 70% = 63%`.
+- The health multiplier is applied **on top of** the tier speed. A critical runner in the hard tier moves the world at `90% Ã— 70% = 63%`.
 - The chaser's speed scales independently from 50 to 120 px/s across the full 9,000 px.
 
 Word pools live in `WORD_POOLS`:
 
-- **Easy:** ~3–5 letters (`run`, `jump`, `dash`, `slide`, …)
-- **Medium:** ~6–9 letters (`running`, `dodging`, `knowledge`, …)
-- **Hard:** 9–11 letters (`accelerate`, `synchronize`, `complicated`, …)
+- **Easy:** ~3â€“5 letters (`run`, `jump`, `dash`, `slide`, â€¦)
+- **Medium:** ~6â€“9 letters (`running`, `dodging`, `knowledge`, â€¦)
+- **Hard:** 9â€“11 letters (`accelerate`, `synchronize`, `complicated`, â€¦)
 
 ### 7. Hatch endgame
 
@@ -214,10 +217,10 @@ When `distanceTraveled` reaches `JOURNEY_DISTANCE` (9,000 px), `startHatchSequen
 2. Obstacles are removed and normal spawning stops.
 3. The player must retype **one sentence** from `HATCH_SENTENCES`, letter by letter. Typed letters turn white while the rest stay gray. Press **SPACE** to move to the next word once it is complete (Enter is ignored).
 4. The player has **3 lockpicks**:
-   - Correct letter → it is added to the current word.
-   - Wrong letter → the letter is rejected and one lockpick is lost.
+   - Correct letter â†’ it is added to the current word.
+   - Wrong letter â†’ the letter is rejected and one lockpick is lost.
    - After a loss, a **0.75 s cooldown** ignores further wrong letters before another lockpick can be lost.
-   - All lockpicks lost → the hatch is sealed, the chaser enrages, and its jumpscare lunge ends the run.
+   - All lockpicks lost â†’ the hatch is sealed, the chaser enrages, and its jumpscare lunge ends the run.
 
 Completing the whole sentence immediately ends the run with **ESCAPED** (green win screen). Runner lives are not consumed by the hatch challenge, but the chaser can still catch you while you type.
 
@@ -225,8 +228,8 @@ Completing the whole sentence immediately ends the run with **ESCAPED** (green w
 
 The HUD (top-right) tracks **survival time**, not points:
 
-- **CURRENT** — elapsed run time in `mm:ss`.
-- **BEST** — saved best time, or `NO RECORD` for a first-time player.
+- **CURRENT** â€” elapsed run time in `mm:ss`.
+- **BEST** â€” saved best time, or `NO RECORD` for a first-time player.
 
 The best time persists in `localStorage` under the key `run4life.bestSurvivalTime`.
 
@@ -242,21 +245,21 @@ This point total is **not displayed** on the HUD or game-over screen; survival t
 
 ### 9. Parallax city
 
-The backdrop is a three-layer parallax skyline built from `sprites/Building/*.png`. Buildings are **purely decorative** — they live in their own arrays, never in `obstacles[]`, so typing, collisions, and chaser AI ignore them.
+The backdrop is a three-layer parallax skyline built from `sprites/Building/*.png`. Buildings are **purely decorative** â€” they live in their own arrays, never in `obstacles[]`, so typing, collisions, and chaser AI ignore them.
 
 | Layer | Scroll factor | Height @1080p | Alpha | Gap range | Feel |
 |-------|-------------:|--------------:|------:|----------:|------|
-| Far | 0.18× | 110–230 px | 0.50 | 40–150 px | Distant skyline, hazy |
-| Mid | 0.42× | 240–470 px | 0.75 | 28–110 px | Mid-distance blocks |
-| Near | 0.72× | 430–800 px | 1.00 | 14–75 px | Large, dense, close |
+| Far | 0.18Ã— | 110â€“230 px | 0.50 | 40â€“150 px | Distant skyline, hazy |
+| Mid | 0.42Ã— | 240â€“470 px | 0.75 | 28â€“110 px | Mid-distance blocks |
+| Near | 0.72Ã— | 430â€“800 px | 1.00 | 14â€“75 px | Large, dense, close |
 
-The **near layer is deliberately oversized and tightly packed** so the runner feels enclosed by the city rather than running past distant scenery. All sizes are authored against a 1920×1080 reference and multiplied by `sceneScale()` (`canvas.height / 1080`), so the skyline stays proportional at any resolution.
+The **near layer is deliberately oversized and tightly packed** so the runner feels enclosed by the city rather than running past distant scenery. All sizes are authored against a 1920Ã—1080 reference and multiplied by `sceneScale()` (`canvas.height / 1080`), so the skyline stays proportional at any resolution.
 
 Each building is picked with weighted randomness (small and mid buildings are more common; towers are rare), horizontally cropped to its opaque bounds (`sx/sy/sw/sh`) so it sits flush on the floor, and capped at a per-layer `maxWidth` so wide sprites cannot swallow the viewport.
 
-Street props (`Electric-Post.png`) use a separate, sparse layer in front of the buildings but behind the runner (`speed: 0.9`, height `820–845` — taller than the tallest near-layer building so they read as close foreground silhouettes). Because `worldSpeed` already includes difficulty and health multipliers, and `delta` is slow-motion-scaled, the whole city inherits speed changes and slow motion automatically.
+Street props (`Electric-Post.png`) use a separate, sparse layer in front of the buildings but behind the runner (`speed: 0.9`, height `820â€“845` â€” taller than the tallest near-layer building so they read as close foreground silhouettes). Because `worldSpeed` already includes difficulty and health multipliers, and `delta` is slow-motion-scaled, the whole city inherits speed changes and slow motion automatically.
 
-`drawPropWires()` connects every consecutive pair of posts with a bundle of **15 black**, gently sagging quadratic curves spread evenly across the crossarm (`PROP_WIRE_COUNT`, `PROP_WIRE_ANCHORS` in native sprite coords). The lines fan out (leftmost deepest sag → rightmost shallowest) so they read as separate cables rather than one thick band. Wires are drawn before the posts so the poles cover the attachment points, and each span is skipped once it is off-screen.
+`drawPropWires()` connects every consecutive pair of posts with a bundle of **15 black**, gently sagging quadratic curves spread evenly across the crossarm (`PROP_WIRE_COUNT`, `PROP_WIRE_ANCHORS` in native sprite coords). The lines fan out (leftmost deepest sag â†’ rightmost shallowest) so they read as separate cables rather than one thick band. Wires are drawn before the posts so the poles cover the attachment points, and each span is skipped once it is off-screen.
 
 A fresh run calls `resetBuildings()` in `resetGame()` and again in `resizeCanvas()`, prefilling from off-screen left so the skyline is complete on the first frame.
 
@@ -266,33 +269,33 @@ A fresh run calls `resetBuildings()` in `resetGame()` and again in `resizeCanvas
 
 ```
 Run4Life-1/
-├── index.html                  Main menu, game-over dialog, canvas, HUD
-├── style.css                   Menu/UI styling, animated menu road, HUD skin
-├── game.js                     Entire game (config, classes, loop, rendering)
-├── README.md                   This document
-├── fonts/
-│   └── Symtext.ttf             Game font (declared as "GameMode" in CSS)
-└── sprites/
-    ├── Building/               Parallax city sprites (7 buildings + props)
-    │   ├── Apartment-1.png
-    │   ├── Store-3.png
-    │   ├── Short_Building-4.png
-    │   ├── Short_Building-5.png
-    │   ├── Short_Building-6.png
-    │   ├── Short_Building-7.png
-    │   ├── Tall_Building-2.png
-    │   └── Objects/
-    │       └── Electric-Post.png
-    ├── Character-Sprites/      Runner run/jump/slide (states 1–4), chaser
-    ├── Maps/
-    │   ├── Map1.png            Sky/background
-    │   └── Building.png        Reserved / unused
-    ├── Meter-Sprites/          Journey bar + head icons
-    ├── Obstacles/              Barrier, stop sign, cone, sliding-obstacle-1/2
-    └── Others/
-        ├── word-bg.png         Background behind obstacle words
-        ├── hud-background.png  Survival HUD background
-        └── Button_Icons.png    Game-over button skin
+â”œâ”€â”€ index.html                  Main menu, game-over dialog, canvas, HUD
+â”œâ”€â”€ style.css                   Menu/UI styling, animated menu road, HUD skin
+â”œâ”€â”€ game.js                     Entire game (config, classes, loop, rendering)
+â”œâ”€â”€ README.md                   This document
+â”œâ”€â”€ fonts/
+â”‚   â””â”€â”€ Symtext.ttf             Game font (declared as "GameMode" in CSS)
+â””â”€â”€ sprites/
+    â”œâ”€â”€ Building/               Parallax city sprites (7 buildings + props)
+    â”‚   â”œâ”€â”€ Apartment-1.png
+    â”‚   â”œâ”€â”€ Store-3.png
+    â”‚   â”œâ”€â”€ Short_Building-4.png
+    â”‚   â”œâ”€â”€ Short_Building-5.png
+    â”‚   â”œâ”€â”€ Short_Building-6.png
+    â”‚   â”œâ”€â”€ Short_Building-7.png
+    â”‚   â”œâ”€â”€ Tall_Building-2.png
+    â”‚   â””â”€â”€ Objects/
+    â”‚       â””â”€â”€ Electric-Post.png
+    â”œâ”€â”€ Character-Sprites/      Runner run/jump/slide (states 1â€“4), chaser
+    â”œâ”€â”€ Maps/
+    â”‚   â”œâ”€â”€ Map1.png            Sky/background
+    â”‚   â””â”€â”€ Building.png        Reserved / unused
+    â”œâ”€â”€ Meter-Sprites/          Journey bar + head icons
+    â”œâ”€â”€ Obstacles/              Barrier, stop sign, cone, sliding-obstacle-1/2
+    â””â”€â”€ Others/
+        â”œâ”€â”€ word-bg.png         Background behind obstacle words
+        â”œâ”€â”€ hud-background.png  Survival HUD background
+        â””â”€â”€ Button_Icons.png    Game-over button skin
 ```
 
 ### What each file does
@@ -314,9 +317,9 @@ Run4Life-1/
 
 ```
 Entity                         Abstract base: x, y, width, height, getBounds()
- ├── Runner                    Player movement, jump/slide, health-based sprites
- ├── Chaser                    Pursuit, obstacle blocking, jump/slide reactions
- └── Obstacle                  Word, type (jump/slide), variant, cleared state
+ â”œâ”€â”€ Runner                    Player movement, jump/slide, health-based sprites
+ â”œâ”€â”€ Chaser                    Pursuit, obstacle blocking, jump/slide reactions
+ â””â”€â”€ Obstacle                  Word, type (jump/slide), variant, cleared state
 ```
 
 - **`Entity`** defines the shared position/size contract and requires subclasses to implement `update()`.
@@ -328,31 +331,31 @@ Entity                         Abstract base: x, y, width, height, getBounds()
 
 ```
 requestAnimationFrame(gameLoop)
-  └── update(scaledDelta, realDelta)
-        ├── advance survival time and distance
-        ├── start the hatch at 9,000 px
-        ├── scroll the parallax city (buildings + props)
-        ├── update runner + chaser + obstacles
-        ├── spawn obstacles (tier-based interval)
-        ├── pick the typing target
-        ├── fire queued jump/slide actions
-        ├── move the chaser over cleared obstacles
-        ├── resolve runner/obstacle and runner/chaser collisions
-        └── tick visual effects (flash, shake, cooldown, popups)
-  └── draw()
-        ├── sky background + camera shake
-        ├── parallax city (far → mid → near → props)
-        ├── floor + journey meter
-        ├── runner, chaser, obstacles, hatch
-        ├── score popups
-        └── slow-motion tint, wrong-letter flash, hit-cooldown outline
+  â””â”€â”€ update(scaledDelta, realDelta)
+        â”œâ”€â”€ advance survival time and distance
+        â”œâ”€â”€ start the hatch at 9,000 px
+        â”œâ”€â”€ scroll the parallax city (buildings + props)
+        â”œâ”€â”€ update runner + chaser + obstacles
+        â”œâ”€â”€ spawn obstacles (tier-based interval)
+        â”œâ”€â”€ pick the typing target
+        â”œâ”€â”€ fire queued jump/slide actions
+        â”œâ”€â”€ move the chaser over cleared obstacles
+        â”œâ”€â”€ resolve runner/obstacle and runner/chaser collisions
+        â””â”€â”€ tick visual effects (flash, shake, cooldown, popups)
+  â””â”€â”€ draw()
+        â”œâ”€â”€ sky background + camera shake
+        â”œâ”€â”€ parallax city (far â†’ mid â†’ near â†’ props)
+        â”œâ”€â”€ floor + journey meter
+        â”œâ”€â”€ runner, chaser, obstacles, hatch
+        â”œâ”€â”€ score popups
+        â””â”€â”€ slow-motion tint, wrong-letter flash, hit-cooldown outline
 ```
 
 ### Helper functions worth knowing
 
 | Function | Purpose |
 |----------|---------|
-| `getWorldSpeed()` | Base world speed × difficulty tier × health multiplier |
+| `getWorldSpeed()` | Base world speed Ã— difficulty tier Ã— health multiplier |
 | `getSpawnInterval()` | Tier-based obstacle spawn interval |
 | `getCurrentWordPool()` | Easy / medium / hard word list for the current distance |
 | `getTimeScale()` | Slow-motion factor from the nearest untyped obstacle |
@@ -373,10 +376,10 @@ requestAnimationFrame(gameLoop)
 
 Two `keydown` listeners split the work:
 
-1. **Letter input** — appends to `currentTyped` and calls `checkTypedMatch()`; during the hatch it calls `handleHatchLetter()` for per-letter validation.
-2. **Editing keys** — handles Backspace and Escape; during the hatch, SPACE advances a completed word and Enter is ignored.
+1. **Letter input** â€” appends to `currentTyped` and calls `checkTypedMatch()`; during the hatch it calls `handleHatchLetter()` for per-letter validation.
+2. **Editing keys** â€” handles Backspace and Escape; during the hatch, SPACE advances a completed word and Enter is ignored.
 
-Menu music is generated procedurally with the Web Audio API (triangle melody + sine bass) and is opt-in via the ♪ button.
+Menu music is generated procedurally with the Web Audio API (triangle melody + sine bass) and is opt-in via the â™ª button.
 
 ---
 
@@ -396,7 +399,7 @@ All tuning values live near the top of `game.js`, grouped by system.
 | Slide | `SLIDE_DURATION`, `SLIDE_HEIGHT`, `SLIDE_WIDTH`, `SLIDE_TRIGGER_DISTANCE` | Slide feel and hitbox |
 | Chaser | `CHASER_SPEED_START/END`, `CHASER_STOP_DISTANCE`, `CHASER_JUMP_CUE`, `CHASER_ENRAGE_SPEED_MULTIPLIER`, `CHASER_ENRAGE_JUMP_HEIGHT/DURATION` | Pursuit difficulty and final-life jumpscare |
 | Health | `MAX_LIVES`, `HIT_COOLDOWN` | Damage rules and invincibility |
-| Hatch | `HATCH_SENTENCES`, `HATCH_LOCKPICK_COUNT`, `HATCH_LOCKPICK_COOLDOWN`, `HATCH_CHASER_SLOW_FACTOR`, `HATCH_CHASER_FAILURE_FACTOR`, `DEBUG_HATCH_AT_START`, `DEBUG_HATCH_TRIGGER_DISTANCE` | Endgame rules and debug trigger |
+| Hatch | `HATCH_SENTENCES`, `HATCH_LOCKPICK_COUNT`, `HATCH_LOCKPICK_COOLDOWN`, `HATCH_CHASER_SLOW_FACTOR`, `HATCH_CHASER_FAILURE_FACTOR`, `HATCH_OBSTACLE_WIDTH`, `HATCH_OBSTACLE_HEIGHT`, `HATCH_PROXIMITY_DISTANCE`, `DEBUG_HATCH_AT_START`, `DEBUG_HATCH_TRIGGER_DISTANCE` | Endgame rules, hatch marker/proximity, and debug trigger |
 | Runner visuals | `RUNNER_SPRITE_SCALE`, `RUNNER_SLIDE_STRETCH_X/Y`, `RUNNER_HITBOX_INSET` | Shared draw scale and hitbox size |
 | Parallax city | `BUILDING_VARIANTS`, `BUILDING_LAYERS`, `PROP_VARIANTS`, `PROP_LAYER`, `PROP_WIRE_COUNT`, `PROP_WIRE_ANCHORS` | Sprite crop boxes, layer speed/height/alpha/gap, prop spacing, post wire count/attachment points |
 | Effects | `WRONG_FLASH_DURATION`, `SHAKE_DURATION`, `SHAKE_INTENSITY` | Feedback intensity |
@@ -411,14 +414,14 @@ All character sheets are horizontal strips, read left-to-right.
 
 | Sheet | Frames | Frame size | Files |
 |-------|-------:|-----------:|-------|
-| Runner run | 10 | 120 × 200 | `runner-run-{1..4}.png` |
-| Runner jump | 10 | 120 × 200 | `runner-jump-{1..4}.png` |
-| Runner slide | 14 | 200 × 200 | `runner-slide-4.png` only |
-| Chaser run | 9 | 300 × 300 | `chaser-run.png` |
-| Chaser jump | 8 | 300 × 300 | `chaser-jump.png` |
-| Chaser slide | 16 | 300 × 300 | `chaser-slide.png` |
+| Runner run | 10 | 120 Ã— 200 | `runner-run-{1..4}.png` |
+| Runner jump | 10 | 120 Ã— 200 | `runner-jump-{1..4}.png` |
+| Runner slide | 14 | 200 Ã— 200 | `runner-slide-4.png` only |
+| Chaser run | 9 | 300 Ã— 300 | `chaser-run.png` |
+| Chaser jump | 8 | 300 Ã— 300 | `chaser-jump.png` |
+| Chaser slide | 16 | 300 Ã— 300 | `chaser-slide.png` |
 
-Obstacle sprites are single images (`obstacle-1/2/3.png`). Slide obstacles use `sliding-obstacle-1.png` and `sliding-obstacle-2.png` (native 150 × 360, cropped to opaque bounds and drawn 150 px tall so the legs reach the floor). The journey meter uses `meter-bar.png` plus the four runner head icons, the chaser head, and the hatch icon.
+Obstacle sprites are single images (`obstacle-1/2/3.png`). Slide obstacles use `sliding-obstacle-1.png` and `sliding-obstacle-2.png` (native 150 Ã— 360, cropped to opaque bounds and drawn 150 px tall so the legs reach the floor). The journey meter uses `meter-bar.png` plus the four runner head icons, the chaser head, and the hatch icon.
 
 The main menu reuses `runner-run-4.png` and `chaser-run.png` as CSS `steps()` sprite animations.
 
@@ -426,20 +429,32 @@ Background buildings are single painted PNGs with alpha, not sprite sheets. Thei
 
 | File | Native size |
 |------|------------:|
-| `Apartment-1.png` | 192 × 256 |
-| `Store-3.png` | 365 × 288 |
-| `Short_Building-4.png` | 360 × 360 |
-| `Short_Building-5.png` | 500 × 400 |
-| `Short_Building-6.png` | 500 × 400 |
-| `Short_Building-7.png` | 500 × 450 |
-| `Tall_Building-2.png` | 288 × 645 |
-| `Objects/Electric-Post.png` | 150 × 360 (prop) |
+| `Apartment-1.png` | 192 Ã— 256 |
+| `Store-3.png` | 365 Ã— 288 |
+| `Short_Building-4.png` | 360 Ã— 360 |
+| `Short_Building-5.png` | 500 Ã— 400 |
+| `Short_Building-6.png` | 500 Ã— 400 |
+| `Short_Building-7.png` | 500 Ã— 450 |
+| `Tall_Building-2.png` | 288 Ã— 645 |
+| `Objects/Electric-Post.png` | 150 Ã— 360 (prop) |
 
 ---
 
 ## Changelog
 
-### 2026-11-10 — hatch endgame sign-off
+### 2026-11-11 - hatch marker and UI flow update
+
+**Hatch marker object**
+- At the hatch trigger distance, `spawnHatchObstacle()` adds a red placeholder hatch marker to `obstacles` (`type: 'hatch'`) on the floor. It scrolls in with the world; normal obstacle spawning stops once it appears.
+- The typing sequence now starts on proximity: when the runner is within `HATCH_PROXIMITY_DISTANCE` of the marker, `startHatchSequence()` runs (instead of auto-starting at distance).
+
+**Hatch UI**
+- The hatch typing UI is screen-centered (not anchored to the floor marker) and pans up from below the screen to center over `HATCH_TRANSITION_DURATION` when the sequence begins.
+- `HATCH_CHASER_SLOW_FACTOR` is set to `0.85` during the hatch sequence.
+- `HATCH_SENTENCES` now uses longer prompts (12â€“14 words each).
+- Hatch debug spawn flags remain available for testing (`DEBUG_HATCH_AT_START`, `DEBUG_HATCH_TRIGGER_DISTANCE`) and are disabled by default.
+
+### 2026-11-10 - hatch endgame sign-off
 
 **Sentence hatch**
 - The hatch is unlocked by retyping **one sentence** from `HATCH_SENTENCES`, letter by letter, instead of three separate words.
@@ -449,23 +464,23 @@ Background buildings are single painted PNGs with alpha, not sprite sheets. Thei
 
 **Failure / debug**
 - Losing the final lockpick seals the hatch and calls `startChaserEnrage()`, so the jumpscare lunge ends the run in ~0.45 s.
-- The temporary hatch-at-start debug trigger is disabled; the hatch opens at the normal **9,000 px**.
+- The temporary hatch-at-start debug trigger was previously disabled; it may be re-enabled for testing as noted above.
 
-### 2026-11-09 — `883216d` (pushed to `Hatch_Sys`)
+### 2026-11-09 â€” `883216d` (pushed to `Hatch_Sys`)
 
 **Electric posts and wires**
 - Added a sparse foreground prop layer using `sprites/Building/Objects/Electric-Post.png`.
-- Posts are **820–845 px** tall (`PROP_LAYER.height`), so every post is taller than the tallest near-layer building (800 px).
-- Post spacing widened to **600–1100 px** (`PROP_LAYER.gap`).
+- Posts are **820â€“845 px** tall (`PROP_LAYER.height`), so every post is taller than the tallest near-layer building (800 px).
+- Post spacing widened to **600â€“1100 px** (`PROP_LAYER.gap`).
 - Every consecutive pair of posts is connected by **15 black wires** (`PROP_WIRE_COUNT`) attached across the crossarm (`PROP_WIRE_ANCHORS`), with fanned sag so they read as separate cables.
 
 **Slide-obstacle sprites**
 - Floating obstacles now use `sliding-obstacle-1.png` / `sliding-obstacle-2.png` instead of the drawn placeholder.
-- Opaque crops strip the transparent padding; the art is drawn `SLIDE_OBSTACLE_TOTAL_HEIGHT` (150 px) tall while the collision block stays `50 × 120` with 30 px floor clearance.
+- Opaque crops strip the transparent padding; the art is drawn `SLIDE_OBSTACLE_TOTAL_HEIGHT` (150 px) tall while the collision block stays `50 Ã— 120` with 30 px floor clearance.
 
 **Last-life enrage / jumpscare**
 - Losing the **last life no longer shows the game-over screen immediately**.
-- `loseLife()` starts `startChaserEnrage()` instead: the chaser moves at **720 px/s** (`CHASER_SPEED_END × 6`), ignores obstacles/stagger, and performs a single lunge before locking onto the runner.
+- `loseLife()` starts `startChaserEnrage()` instead: the chaser moves at **720 px/s** (`CHASER_SPEED_END Ã— 6`), ignores obstacles/stagger, and performs a single lunge before locking onto the runner.
 - The world freezes and a red pulse plays; the run ends **only** when the enraged chaser catches the runner.
 - The hatch **ESCAPED** win dialog is unchanged.
 - `resetGame()` clears the enrage state and restores the chaser's jump height.
@@ -477,7 +492,7 @@ Background buildings are single painted PNGs with alpha, not sprite sheets. Thei
 - **No build step.** Edit a file and refresh the browser.
 - **State lives in module-level variables** in `game.js`; `resetGame()` is the single place that restores them between runs.
 - **`localStorage` is per-origin.** Running from a local server and from `file://` will use different saved best times.
-- **Rendering order matters:** sky → parallax city (far/mid/near/props) → floor/meter → entities → hatch → popups → full-screen tints.
+- **Rendering order matters:** sky â†’ parallax city (far/mid/near/props) â†’ floor/meter â†’ entities â†’ hatch â†’ popups â†’ full-screen tints.
 - **The journey meter is at the bottom** of the screen (`METER_BOTTOM_MARGIN`), despite the old comment suggesting the top.
 - **Reserved constants:** `CHASER_STAGGER_DURATION`, `CHASER_STAGGER_FACTOR`, and the `chaser.staggerTime` path are currently unused (the chaser never staggers), and `HATCH_OFFSET_FROM_RUNNER` / `getHatchWorldX()` are left over from an earlier world-position hatch design. They can be removed or implemented later.
 - **No pause, touch, or gamepad support yet.**
