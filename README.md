@@ -178,7 +178,7 @@ Behavior:
 - Moves toward the runner's center each frame.
 - Stops **130 px** behind any cleared obstacle it has not yet traversed, drifting at **70%** of world speed while blocked.
 - Jumps or slides over cleared obstacles when they are **50 px** away.
-- During the hatch sequence it moves at **85%** speed (`HATCH_CHASER_SLOW_FACTOR`); if the hatch is sealed it enrages and lunges for the kill.
+- During the hatch sequence it moves at **70%** speed (`HATCH_CHASER_SLOW_FACTOR`); if the hatch is sealed it enrages and lunges for the kill.
 - When the runner's last life is lost it **enrages**: **600% of its top speed** (720 px/s), a single enrage lunge (`CHASER_ENRAGE_JUMP_DURATION`), ignores obstacles/stagger, and runs on real time so slow motion cannot delay the kill.
 
 Touching the runner ends the run immediately.
@@ -211,10 +211,12 @@ Word pools live in `WORD_POOLS`:
 
 ### 7. Hatch endgame
 
-When `distanceTraveled` reaches `JOURNEY_DISTANCE` (9,000 px), `startHatchSequence()` runs:
+When `distanceTraveled` reaches `JOURNEY_DISTANCE` (9,000 px), `spawnHatchObstacle()` adds a red hatch marker to the floor. It scrolls in with the world, and normal obstacle spawning stops once it appears. The marker is spawned one `HATCH_OBSTACLE_CLEARANCE` (260 px) further right than normal obstacles, and `spawnObstacle()` refuses to place an obstacle inside that clearance zone, so nothing ever spawns on top of or beside the hatch.
+
+When the runner comes within `HATCH_PROXIMITY_DISTANCE` (120 px) of the marker, `startHatchSequence()` runs:
 
 1. The hatch rises into the center of the screen over **0.8 seconds**.
-2. Obstacles are removed and normal spawning stops.
+2. Remaining obstacles are removed.
 3. The player must retype **one sentence** from `HATCH_SENTENCES`, letter by letter. Typed letters turn white while the rest stay gray. Press **SPACE** to move to the next word once it is complete (Enter is ignored).
 4. The player has **3 lockpicks**:
    - Correct letter â†’ it is added to the current word.
@@ -442,6 +444,14 @@ Background buildings are single painted PNGs with alpha, not sprite sheets. Thei
 
 ## Changelog
 
+### 2026-11-11 - slower chaser during the hatch
+
+- `HATCH_CHASER_SLOW_FACTOR` lowered from `0.85` to `0.70`, so the chaser moves at **70%** of its normal speed while the hatch is entering/active.
+
+### 2026-11-11 - hatch marker clearance
+
+- Added `HATCH_OBSTACLE_CLEARANCE` (260 px). `spawnHatchObstacle()` now spawns the marker one clearance zone further right than normal obstacles, and `spawnObstacle()` skips any spawn that would land inside the hatch marker's clearance zone. This prevents obstacles from spawning on top of or right next to the hatch as it scrolls in.
+
 ### 2026-11-11 - hatch marker and UI flow update
 
 **Hatch marker object**
@@ -450,7 +460,7 @@ Background buildings are single painted PNGs with alpha, not sprite sheets. Thei
 
 **Hatch UI**
 - The hatch typing UI is screen-centered (not anchored to the floor marker) and pans up from below the screen to center over `HATCH_TRANSITION_DURATION` when the sequence begins.
-- `HATCH_CHASER_SLOW_FACTOR` is set to `0.85` during the hatch sequence.
+- `HATCH_CHASER_SLOW_FACTOR` is set to `0.70` during the hatch sequence.
 - `HATCH_SENTENCES` now uses longer prompts (12â€“14 words each).
 - Hatch debug spawn flags remain available for testing (`DEBUG_HATCH_AT_START`, `DEBUG_HATCH_TRIGGER_DISTANCE`) and are disabled by default.
 

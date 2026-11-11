@@ -572,7 +572,10 @@ const HATCH_HEIGHT = 150;
 const HATCH_OBSTACLE_WIDTH = 90;
 const HATCH_OBSTACLE_HEIGHT = 24;
 const HATCH_PROXIMITY_DISTANCE = 120;
-const HATCH_CHASER_SLOW_FACTOR = 0.85;
+// Normal obstacles keep at least this much horizontal space from the hatch marker
+// so nothing ever spawns on top of or right next to it.
+const HATCH_OBSTACLE_CLEARANCE = 260;
+const HATCH_CHASER_SLOW_FACTOR = 0.70;
 const HATCH_CHASER_FAILURE_FACTOR = 2;
 const HATCH_LOCKPICK_COOLDOWN = 0.75; // seconds between lockpick losses
 
@@ -1374,10 +1377,23 @@ function getHatchWorldX() {
   return runnerStartX + JOURNEY_DISTANCE;
 }
 
+// True when an object occupying [x, x + width] would sit within the hatch marker's
+// clearance zone. Used to keep normal obstacles from spawning near the hatch.
+function isNearHatchObstacle(x, width = 0) {
+  if (!hatchObstacle) return false;
+  const hatchLeft = hatchObstacle.x - HATCH_OBSTACLE_CLEARANCE;
+  const hatchRight = hatchObstacle.x + hatchObstacle.width + HATCH_OBSTACLE_CLEARANCE;
+  return x + width >= hatchLeft && x <= hatchRight;
+}
+
 function spawnHatchObstacle() {
   if (hatchSpawned) return;
+  // Spawn the marker one clearance zone further right than normal obstacles. Since
+  // the hatch and obstacles share the same world speed, any obstacle already on
+  // screen (or just spawned) keeps at least HATCH_OBSTACLE_CLEARANCE of space
+  // between it and the hatch for the whole approach.
   const obstacle = new Obstacle(
-    canvas.width + 30,
+    canvas.width + 30 + HATCH_OBSTACLE_CLEARANCE,
     getFloorTop() - HATCH_OBSTACLE_HEIGHT,
     HATCH_OBSTACLE_WIDTH,
     HATCH_OBSTACLE_HEIGHT,
@@ -2395,6 +2411,9 @@ function getChaserVisualProgress() {
 }
 
 function spawnObstacle() {
+  // Never drop a normal obstacle inside the hatch marker's clearance zone.
+  if (isNearHatchObstacle(canvas.width + 30)) return;
+
   const pool = getCurrentWordPool();
   const word = pool[Math.floor(Math.random() * pool.length)];
 
